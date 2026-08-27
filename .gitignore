@@ -4,3 +4,12 @@
 /real-se5-cheat.yml
 /se5-cheats.yml
 tools/*
+
+# Wails frontend build artifacts. gitkeep is tracked deliberately: go:embed
+# needs at least one file under frontend/dist to compile, which `wails
+# build` requires *before* it runs the frontend build that would otherwise
+# populate this directory - see frontend/dist/gitkeep.
+frontend/node_modules
+frontend/dist/*
+!frontend/dist/gitkeep
+build/bin

@@ -1,0 +1,77 @@
+export namespace desktop {
+	
+	export class AttachInfo {
+	    attached: boolean;
+	    pid: number;
+	    platform: string;
+	    gameName: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new AttachInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.attached = source["attached"];
+	        this.pid = source["pid"];
+	        this.platform = source["platform"];
+	        this.gameName = source["gameName"];
+	    }
+	}
+	export class BuildInfo {
+	    goVersion: string;
+	    os: string;
+	    arch: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new BuildInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.goVersion = source["goVersion"];
+	        this.os = source["os"];
+	        this.arch = source["arch"];
+	    }
+	}
+	export class FeatureView {
+	    name: string;
+	    category: string;
+	    hotkey: string;
+	    stability: string;
+	    note: string;
+	    available: boolean;
+	    active: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new FeatureView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.category = source["category"];
+	        this.hotkey = source["hotkey"];
+	        this.stability = source["stability"];
+	        this.note = source["note"];
+	        this.available = source["available"];
+	        this.active = source["active"];
+	    }
+	}
+	export class TableSummary {
+	    path: string;
+	    name: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new TableSummary(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.name = source["name"];
+	    }
+	}
+
+}
+
