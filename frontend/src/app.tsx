@@ -106,7 +106,7 @@ export function App() {
 
         {view === 'game' && current && (
           <GameView
-            tableName={current.name}
+            table={current}
             features={features}
             attachInfo={attachInfo}
             status={status}
@@ -126,7 +126,9 @@ export function App() {
           <ScriptsView tablePath={current?.path ?? null} tableName={current?.name ?? null}/>
         )}
 
-        {view === 'settings' && <SettingsView attached={!!attachInfo} onDetachAll={onDetachAll}/>}
+        {view === 'settings' && (
+          <SettingsView attached={!!attachInfo} onDetachAll={onDetachAll} current={current}/>
+        )}
 
         {view === 'about' && <AboutView/>}
       </div>

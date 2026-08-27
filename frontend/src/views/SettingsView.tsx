@@ -1,25 +1,38 @@
 import {useEffect, useState} from 'preact/hooks';
-import {BuildInfo} from '../types';
-import {BuildInfo as FetchBuildInfo} from '../../wailsjs/go/desktop/App';
+import {BuildInfo, TableSummary} from '../types';
+import {BuildInfo as FetchBuildInfo, TableSource} from '../../wailsjs/go/desktop/App';
+import {CommandLine} from '../components/CommandLine';
+import {YamlBlock} from '../components/YamlBlock';
 
 // Behavior toggles below are real UI matching the mockup, but *inert*: none
 // of them are backed by anything yet - there's no persisted settings file,
 // no auto-attach polling loop, no overlay window, and no update-fetching
 // code. Only Danger Zone (ties to the real Session.DisableAll via
-// onDetachAll) and Build info (real runtime.Version()/GOOS/GOARCH) are
-// live. Showing these disabled, labeled "coming soon", is the honest
-// version of this screen rather than pretending they do something.
-export function SettingsView(props: {attached: boolean; onDetachAll: () => void}) {
+// onDetachAll), Build info (real runtime.Version()/GOOS/GOARCH), and the
+// table source panel (real file content) are live. Showing the rest
+// disabled and labeled "coming soon" is the honest version of this screen
+// rather than pretending they do something.
+export function SettingsView(props: {attached: boolean; onDetachAll: () => void; current: TableSummary | null}) {
   const [build, setBuild] = useState<BuildInfo | null>(null);
   const [confirmText, setConfirmText] = useState('');
+  const [source, setSource] = useState('');
 
   useEffect(() => {
     FetchBuildInfo().then(setBuild);
   }, []);
 
+  useEffect(() => {
+    if (props.current) {
+      TableSource(props.current.path).then(setSource).catch(() => setSource(''));
+    } else {
+      setSource('');
+    }
+  }, [props.current]);
+
   return (
     <div class="view-pad">
       <div class="view-header"><span>settings</span></div>
+      <CommandLine command="cat ~/.config/ourmod/config.yml" right="LOCAL ONLY · NO ACCOUNT"/>
 
       <div class="settings-columns">
         <div class="settings-main">
@@ -64,6 +77,14 @@ export function SettingsView(props: {attached: boolean; onDetachAll: () => void}
               <div class="kv-row"><span class="dim">go</span><span>{build.goVersion}</span></div>
               <div class="kv-row"><span class="dim">platform</span><span>{build.os}/{build.arch}</span></div>
             </div>
+          )}
+
+          {props.current && (
+            <>
+              <div class="section-label">TABLE SOURCE &middot; {props.current.name.toUpperCase()}</div>
+              <YamlBlock source={source}/>
+              <span class="hint">Open in Scripts to read the full file. Editing happens on disk.</span>
+            </>
           )}
 
           <div class="section-label">SOURCE</div>
