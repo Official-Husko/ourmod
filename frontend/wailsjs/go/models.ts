@@ -61,6 +61,9 @@ export namespace desktop {
 	export class TableSummary {
 	    path: string;
 	    name: string;
+	    checksum: string;
+	    featureCount: number;
+	    author: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new TableSummary(source);
@@ -70,6 +73,9 @@ export namespace desktop {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.path = source["path"];
 	        this.name = source["name"];
+	        this.checksum = source["checksum"];
+	        this.featureCount = source["featureCount"];
+	        this.author = source["author"];
 	    }
 	}
 

@@ -4,6 +4,9 @@
 export interface TableSummary {
   path: string;
   name: string;
+  checksum: string;
+  featureCount: number;
+  author: string;
 }
 
 export interface FeatureView {
@@ -29,4 +32,4 @@ export interface BuildInfo {
   arch: string;
 }
 
-export type ViewId = 'library' | 'game' | 'hotkeys' | 'scripts' | 'settings' | 'about';
+export type ViewId = 'library' | 'game' | 'hotkeys' | 'settings' | 'about';

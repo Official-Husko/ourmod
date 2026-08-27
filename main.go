@@ -22,9 +22,11 @@ func main() {
 	app := desktop.NewApp()
 
 	err := wails.Run(&options.App{
-		Title:  "OurMod",
-		Width:  900,
-		Height: 640,
+		Title:     "OurMod",
+		Width:     1280,
+		Height:    800,
+		MinWidth:  900,
+		MinHeight: 600,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},

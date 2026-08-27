@@ -7,6 +7,8 @@ package desktop
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,10 +19,15 @@ import (
 	"github.com/Official-Husko/ourmod/pkg/cheats"
 )
 
-// TableSummary is a row in the table picker.
+// TableSummary is a row in the table picker, and the source for the
+// Library/Trainers tab's listing - Checksum and FeatureCount are real
+// (sha256 of the file, actual parsed feature count), not placeholders.
 type TableSummary struct {
-	Path string `json:"path"`
-	Name string `json:"name"`
+	Path         string `json:"path"`
+	Name         string `json:"name"`
+	Checksum     string `json:"checksum"`
+	FeatureCount int    `json:"featureCount"`
+	Author       string `json:"author"`
 }
 
 // FeatureView is the JSON-friendly projection of a cheats.Feature the
@@ -84,11 +91,23 @@ func (a *App) ListTables() []TableSummary {
 
 	out := make([]TableSummary, 0, len(matches))
 	for _, path := range matches {
-		name := filepath.Base(path)
+		summary := TableSummary{Path: path, Name: filepath.Base(path)}
+
 		if t, err := cheats.LoadFile(path); err == nil {
-			name = t.Metadata.Name
+			summary.Name = t.Metadata.Name
+			summary.FeatureCount = len(t.Features)
+			summary.Author = t.Metadata.Author
+			if summary.Author == "" && len(t.Metadata.Authors) > 0 {
+				summary.Author = strings.Join(t.Metadata.Authors, ", ")
+			}
 		}
-		out = append(out, TableSummary{Path: path, Name: name})
+
+		if data, err := os.ReadFile(path); err == nil {
+			sum := sha256.Sum256(data)
+			summary.Checksum = hex.EncodeToString(sum[:])
+		}
+
+		out = append(out, summary)
 	}
 	return out
 }

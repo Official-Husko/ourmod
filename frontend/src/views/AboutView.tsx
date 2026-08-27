@@ -1,43 +1,63 @@
 import {ComponentChildren} from 'preact';
 import {useEffect, useState} from 'preact/hooks';
-import {BuildInfo} from '../types';
+import {BuildInfo, TableSummary} from '../types';
 import {BuildInfo as FetchBuildInfo, ListTables} from '../../wailsjs/go/desktop/App';
 import {CommandLine} from '../components/CommandLine';
 import {SignalBox} from '../components/SignalBox';
+
+const VERSION = 'v0.1.0-dev';
 
 // Static content, but the "four rules" here aren't aspirational copy - each
 // one describes something this codebase actually does today: Session
 // restores every value on detach (internal/app/ourmod/engine/session.go),
 // cheats are plain YAML anyone can read (pkg/cheats, tables/), and there's
-// no account/update/payment system of any kind. Stats below are real
-// counts, not the mockup's placeholder numbers ("62 contributors" etc.) -
-// there's nothing to report yet beyond what's actually true.
+// no account/update/payment system of any kind. Stats and authors below
+// come from actually reading tables/ - there's nothing to report yet
+// beyond what's actually true, and no LICENSE file exists in this repo so
+// none is claimed here.
 export function AboutView() {
-  const [tableCount, setTableCount] = useState<number | null>(null);
+  const [tables, setTables] = useState<TableSummary[]>([]);
   const [build, setBuild] = useState<BuildInfo | null>(null);
 
   useEffect(() => {
-    ListTables().then((t) => setTableCount(t.length));
+    ListTables().then(setTables);
     FetchBuildInfo().then(setBuild);
   }, []);
 
+  const totalCheats = tables.reduce((sum, t) => sum + t.featureCount, 0);
+  const authors = [...new Set(tables.flatMap((t) => t.author.split(',').map((a) => a.trim()).filter(Boolean)))];
+
   return (
-    <div class="view-pad">
-      <div class="view-header"><span>about</span></div>
+    <div class="game-view">
+      <div class="view-header">
+        <span>about</span>
+        <span class="spacer"/>
+        <span class="dim mono-sm">{VERSION} &middot; no license file &middot; {authors.length} author{authors.length === 1 ? '' : 's'}</span>
+      </div>
 
-      <div class="settings-columns">
+      <div class="settings-columns view-pad">
         <div class="settings-main about-body">
-          <CommandLine command="cat about.txt" right={build ? `${build.os}/${build.arch}` : ''}/>
+          <CommandLine command="cat about.txt" right="A HOST FOR TABLES, NOT A CHEAT ITSELF"/>
 
-          <p class="about-lede">
-            OurMod reads memory in a running game process and writes values you pick.
-            It keeps no account and phones nothing home.
-          </p>
+          <div class="page-title">What OurMod is</div>
+          <div class="about-copy">
+            <p>
+              OurMod attaches to a running singleplayer game, reads the values a cheat
+              table points at, and writes the ones you switch on. It is a host for those
+              tables and nothing more - it ships no cheats of its own.
+            </p>
+            <p>
+              Everything runs on your machine. There is no account, no library sync, and
+              no usage figure sent anywhere. Tables are plain YAML files on disk, so you
+              can read one before you trust it - open Scripts on any game to see exactly
+              what it does.
+            </p>
+          </div>
 
           <div class="stat-row">
-            <Stat value={tableCount ?? '-'} label="tables local"/>
+            <Stat value={tables.length} label="tables local"/>
+            <Stat value={totalCheats} label="cheats total"/>
             <Stat value="0" label="bytes sent home"/>
-            <Stat value="0" label="accounts required"/>
             <Stat value={build?.goVersion.replace('go', '') ?? '-'} label="go version"/>
           </div>
 
@@ -57,11 +77,22 @@ export function AboutView() {
 
           <div class="section-label">PROJECT</div>
           <div class="kv-list">
+            <div class="kv-row"><span class="dim">version</span><span>{VERSION}</span></div>
             {build && <div class="kv-row"><span class="dim">built with</span><span>{build.goVersion}</span></div>}
             <div class="kv-row"><span class="dim">platforms</span><span>linux (windows planned)</span></div>
+            <div class="kv-row"><span class="dim">license</span><span>unspecified</span></div>
             <div class="kv-row"><span class="dim">funding</span><span>none &middot; no paid tier</span></div>
             <div class="kv-row"><span class="dim">telemetry</span><span>none</span></div>
           </div>
+
+          <div class="section-label">TABLE AUTHORS</div>
+          {authors.length === 0 ? (
+            <span class="hint">No tables loaded yet.</span>
+          ) : (
+            <div class="chip-row">
+              {authors.map((a) => <span key={a} class="author-chip">{a}</span>)}
+            </div>
+          )}
 
           <div class="section-label">SOURCE</div>
           <div class="kv-list">

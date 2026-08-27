@@ -10,8 +10,13 @@ import {SignalBox} from '../components/SignalBox';
 // which isn't universally supported - showing a working-looking rebind
 // control here would be a real feature we don't have, not a stub for one
 // we're about to add.
-export function HotkeysView(props: {tableName: string | null; features: FeatureView[]; attachInfo: AttachInfo | null}) {
-  const {tableName, features, attachInfo} = props;
+export function HotkeysView(props: {
+  tableName: string | null;
+  tablePath: string | null;
+  features: FeatureView[];
+  attachInfo: AttachInfo | null;
+}) {
+  const {tableName, tablePath, features, attachInfo} = props;
 
   if (!tableName) {
     return (
@@ -36,20 +41,20 @@ export function HotkeysView(props: {tableName: string | null; features: FeatureV
           {attachInfo && <span class="status-inline attached">&#9656; ATTACHED &middot; PID {attachInfo.pid}</span>}
         </div>
 
-        <CommandLine command={`ourmod-cli -table ... -feature ...`} right={`${bound} OF ${features.length} BOUND`}/>
+        <CommandLine command={`cat ${tablePath}`} right={`${bound} OF ${features.length} BOUND`}/>
 
         <div class="hotkey-table">
           <div class="hotkey-table-head">
-            <span>CHEAT</span><span>KEY</span><span>CATEGORY</span><span/>
+            <span>CHEAT</span><span>KEY</span><span>MODE</span><span style="text-align:right">SCOPE</span>
           </div>
           {features.map((f) => (
             <div key={f.name} class="hotkey-table-row">
               <span class="name">{f.name}</span>
-              <span class={`hotkey${f.hotkey ? '' : ' unbound'}`}>{f.hotkey || 'unbound'}</span>
-              <span class="dim">{f.category}</span>
-              <button class="btn btn-outline btn-sm" disabled title="Rebinding: coming soon">
-                REBIND
-              </button>
+              <span class={`hotkey${f.hotkey ? '' : ' unbound'} hotkey-inert`} title="Rebinding: coming soon">
+                {f.hotkey || 'unbound'}
+              </span>
+              <span class="dim">toggle</span>
+              <span class="dim" style="text-align:right;letter-spacing:.08em">IN GAME</span>
             </div>
           ))}
         </div>

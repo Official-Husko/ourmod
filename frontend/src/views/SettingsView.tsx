@@ -31,7 +31,11 @@ export function SettingsView(props: {attached: boolean; onDetachAll: () => void;
 
   return (
     <div class="view-pad">
-      <div class="view-header"><span>settings</span></div>
+      <div class="view-header">
+        <span>settings</span>
+        <span class="spacer"/>
+        <span class="dim mono-sm">~/.config/ourmod/config.yml &middot; edited by hand or here</span>
+      </div>
       <CommandLine command="cat ~/.config/ourmod/config.yml" right="LOCAL ONLY · NO ACCOUNT"/>
 
       <div class="settings-columns">

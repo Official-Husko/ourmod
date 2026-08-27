@@ -12,7 +12,6 @@ import {NavRail} from './components/NavRail';
 import {LibraryView} from './views/LibraryView';
 import {GameView} from './views/GameView';
 import {HotkeysView} from './views/HotkeysView';
-import {ScriptsView} from './views/ScriptsView';
 import {SettingsView} from './views/SettingsView';
 import {AboutView} from './views/AboutView';
 import {AttachInfo, FeatureView, TableSummary, ViewId} from './types';
@@ -26,6 +25,18 @@ export function App() {
   const [status, setStatus] = useState('no game selected');
   const [error, setError] = useState<string | null>(null);
   const errorTimer = useRef<number | undefined>(undefined);
+
+  // Session-only (not persisted - there's no settings-persistence layer
+  // yet): which table paths are starred. Real interaction, honest about
+  // not surviving a restart.
+  const [favourites, setFavourites] = useState<Set<string>>(new Set());
+  const toggleFavourite = (path: string) => {
+    setFavourites((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path); else next.add(path);
+      return next;
+    });
+  };
 
   const showError = useCallback((err: unknown) => {
     const msg = err instanceof Error ? err.message : String(err);
@@ -99,10 +110,12 @@ export function App() {
   return (
     <div class="shell">
       <div class="scanlines"/>
-      <NavRail active={view} onNavigate={navigate} tableCount={tables.length}/>
+      <NavRail active={view} onNavigate={navigate} tableCount={tables.length} hasCurrentGame={!!current}/>
 
       <div class="content">
-        {view === 'library' && <LibraryView tables={tables} onSelect={selectGame}/>}
+        {view === 'library' && (
+          <LibraryView tables={tables} onSelect={selectGame} favourites={favourites} onToggleFavourite={toggleFavourite}/>
+        )}
 
         {view === 'game' && current && (
           <GameView
@@ -110,20 +123,25 @@ export function App() {
             features={features}
             attachInfo={attachInfo}
             status={status}
+            favourite={favourites.has(current.path)}
+            onToggleFavourite={() => toggleFavourite(current.path)}
             onBack={() => setView('library')}
             onAttach={onAttach}
             onDetachAll={onDetachAll}
             onToggle={onToggle}
           />
         )}
-        {view === 'game' && !current && <LibraryView tables={tables} onSelect={selectGame}/>}
-
-        {view === 'hotkeys' && (
-          <HotkeysView tableName={current?.name ?? null} features={features} attachInfo={attachInfo}/>
+        {view === 'game' && !current && (
+          <LibraryView tables={tables} onSelect={selectGame} favourites={favourites} onToggleFavourite={toggleFavourite}/>
         )}
 
-        {view === 'scripts' && (
-          <ScriptsView tablePath={current?.path ?? null} tableName={current?.name ?? null}/>
+        {view === 'hotkeys' && (
+          <HotkeysView
+            tableName={current?.name ?? null}
+            tablePath={current?.path ?? null}
+            features={features}
+            attachInfo={attachInfo}
+          />
         )}
 
         {view === 'settings' && (

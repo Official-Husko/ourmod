@@ -1,13 +1,17 @@
-import {useState} from 'preact/hooks';
+import {useEffect, useState} from 'preact/hooks';
 import {AttachInfo, FeatureView, TableSummary} from '../types';
+import {TableSource} from '../../wailsjs/go/desktop/App';
 import {CommandLine} from '../components/CommandLine';
 import {OverlayPreview} from '../components/OverlayPreview';
+import {YamlBlock} from '../components/YamlBlock';
 
 export function GameView(props: {
   table: TableSummary;
   features: FeatureView[];
   attachInfo: AttachInfo | null;
   status: string;
+  favourite: boolean;
+  onToggleFavourite: () => void;
   onBack: () => void;
   onAttach: () => void;
   onDetachAll: () => void;
@@ -42,7 +46,7 @@ function AttachPhase(props: {
 }) {
   return (
     <div class="view-pad">
-      <CommandLine command={`ourmod-cli -table ${props.table.path} -feature ...`} right="1 CANDIDATE"/>
+      <CommandLine command={`ourmod-cli -table ${props.table.path} -feature <name>`} right="1 CANDIDATE"/>
 
       <div class="log-stream">
         <div><span class="dim">00.00</span> enumerating processes by argv[0] basename&hellip;</div>
@@ -72,13 +76,15 @@ function AttachedPhase(props: {
   features: FeatureView[];
   attachInfo: AttachInfo;
   status: string;
+  favourite: boolean;
+  onToggleFavourite: () => void;
   onDetachAll: () => void;
   onToggle: (name: string, checked: boolean) => void;
 }) {
-  const {table, features, attachInfo, onDetachAll, onToggle} = props;
+  const {table, features, attachInfo, favourite, onToggleFavourite, onDetachAll, onToggle} = props;
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'active' | 'risky'>('all');
-  const [tab, setTab] = useState<'cheats' | 'script' | 'history' | 'notes'>('cheats');
+  const [tab, setTab] = useState<'cheats' | 'script' | 'history'>('cheats');
   const [showOverlay, setShowOverlay] = useState(false);
 
   const activeCount = features.filter((f) => f.active).length;
@@ -102,7 +108,12 @@ function AttachedPhase(props: {
         <div class="game-cover">
           <span>{table.name.slice(0, 2).toUpperCase()}</span>
         </div>
-        <div class="game-title">{table.name}</div>
+        <div class="game-title-row">
+          <div class="game-title">{table.name}</div>
+          <span class={`fav-badge${favourite ? ' fav-badge-on' : ''}`} onClick={onToggleFavourite}>
+            {favourite ? '★ FAVOURITE' : '☆ FAVOURITE'}
+          </span>
+        </div>
         <div class="tag-row">
           <span class="tag">Singleplayer</span>
           <span class="tag">{attachInfo.platform}</span>
@@ -113,6 +124,11 @@ function AttachedPhase(props: {
           <div class="kv-row"><span class="dim">source</span><span>{table.path}</span></div>
         </div>
         <div class="sidebar-spacer"/>
+        <div class="toggle-row toggle-row-boxed">
+          <div class="toggle-fake" aria-disabled="true"/>
+          <div class="toggle-label">Save mods</div>
+          <span class="coming-soon">coming soon</span>
+        </div>
         <button class="btn btn-outline btn-full" onClick={() => setShowOverlay(true)}>PREVIEW OVERLAY</button>
         <button class="btn btn-outline btn-full" onClick={onDetachAll}>DETACH &middot; RESTORE ALL</button>
         <p class="hint">Values revert on detach. Saves already written to disk do not.</p>
@@ -123,9 +139,8 @@ function AttachedPhase(props: {
           <span class={`tab${tab === 'cheats' ? ' tab-active' : ''}`} onClick={() => setTab('cheats')}>
             CHEATS <span class="tab-count">{features.length}</span>
           </span>
-          <span class="tab tab-disabled" title="Coming soon">SCRIPT</span>
-          <span class="tab tab-disabled" title="Coming soon">HISTORY</span>
-          <span class="tab tab-disabled" title="Coming soon">NOTES</span>
+          <span class={`tab${tab === 'script' ? ' tab-active' : ''}`} onClick={() => setTab('script')}>SCRIPT</span>
+          <span class={`tab${tab === 'history' ? ' tab-active' : ''}`} onClick={() => setTab('history')}>HISTORY</span>
         </div>
 
         {tab === 'cheats' && (
@@ -159,10 +174,12 @@ function AttachedPhase(props: {
           </>
         )}
 
-        {tab !== 'cheats' && (
+        {tab === 'script' && <ScriptTab table={table}/>}
+
+        {tab === 'history' && (
           <div class="empty-big">
             <div class="empty-title">COMING SOON</div>
-            <p>The {tab.toUpperCase()} tab isn't wired up yet.</p>
+            <p>The HISTORY tab isn't wired up yet - it would need session/save-history tracking this build doesn't do.</p>
           </div>
         )}
       </div>
@@ -170,6 +187,43 @@ function AttachedPhase(props: {
       {showOverlay && (
         <OverlayPreview gameName={table.name} features={features} onClose={() => setShowOverlay(false)}/>
       )}
+    </div>
+  );
+}
+
+function ScriptTab(props: {table: TableSummary}) {
+  const [source, setSource] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    TableSource(props.table.path).then(setSource).catch((err) => setError(String(err)));
+  }, [props.table.path]);
+
+  return (
+    <div class="script-tab">
+      <div class="script-tab-main">
+        <div class="filter-row">
+          <span class="section-label" style="margin:0">{props.table.name.toUpperCase().replace(/\s+/g, '-')}.YML</span>
+          <span class="spacer"/>
+          <span class="dim mono-sm">{source ? source.split('\n').length : 0} lines &middot; read only</span>
+        </div>
+        <div class="view-pad" style="padding-top:14px">
+          {error ? (
+            <div class="empty-big"><div class="empty-title">COULD NOT READ FILE</div><p>{error}</p></div>
+          ) : (
+            <YamlBlock source={source}/>
+          )}
+        </div>
+      </div>
+      <div class="script-tab-side">
+        <div class="section-label">FILE</div>
+        <div class="kv-list">
+          <div class="kv-row"><span class="dim">path</span><span>{props.table.path}</span></div>
+          <div class="kv-row"><span class="dim">cheats</span><span>{props.table.featureCount}</span></div>
+          <div class="kv-row"><span class="dim">checksum</span><span class="mono-sm">{props.table.checksum.slice(0, 12)}&hellip;</span></div>
+        </div>
+        <p class="hint">Edit the file directly on disk - there's no in-app editor yet.</p>
+      </div>
     </div>
   );
 }
