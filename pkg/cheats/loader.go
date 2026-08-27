@@ -1,0 +1,219 @@
+package cheats
+
+import (
+	"errors"
+	"fmt"
+	"os"
+	"regexp"
+	"strings"
+
+	"gopkg.in/yaml.v3"
+)
+
+var (
+	patternToken = regexp.MustCompile(`^([0-9A-Fa-f]{2}|\?\?)$`)
+	byteToken    = regexp.MustCompile(`^[0-9A-Fa-f]{2}$`)
+)
+
+const minAbs64Overwrite = 14
+
+// LoadFile reads and validates a cheat table YAML file.
+func LoadFile(path string) (*CheatTable, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("cheats: read %s: %w", path, err)
+	}
+
+	var t CheatTable
+	if err := yaml.Unmarshal(data, &t); err != nil {
+		return nil, fmt.Errorf("cheats: parse %s: %w", path, err)
+	}
+
+	if err := t.Validate(); err != nil {
+		return nil, fmt.Errorf("cheats: validate %s: %w", path, err)
+	}
+
+	return &t, nil
+}
+
+// Find looks up a feature by name, case-insensitively.
+func (t *CheatTable) Find(name string) (*Feature, error) {
+	for i := range t.Features {
+		if strings.EqualFold(t.Features[i].Name, name) {
+			return &t.Features[i], nil
+		}
+	}
+
+	return nil, fmt.Errorf("cheats: feature %q not found", name)
+}
+
+// Validate checks structural/content rules that yaml.Unmarshal alone can't enforce.
+func (t *CheatTable) Validate() error {
+	var errs []error
+
+	if t.Metadata.ID == "" {
+		errs = append(errs, errors.New("metadata.id is required"))
+	}
+	if t.Metadata.Name == "" {
+		errs = append(errs, errors.New("metadata.name is required"))
+	}
+	if t.Metadata.Version == "" {
+		errs = append(errs, errors.New("metadata.version is required"))
+	}
+	if len(t.Metadata.Platforms) == 0 {
+		errs = append(errs, errors.New("metadata.platforms: at least one platform is required"))
+	}
+	for key, p := range t.Metadata.Platforms {
+		if p.Executable == "" {
+			errs = append(errs, fmt.Errorf("metadata.platforms[%s].executable is required", key))
+		}
+	}
+
+	if len(t.Features) == 0 {
+		errs = append(errs, errors.New("features: at least one feature is required"))
+	}
+	for i, f := range t.Features {
+		errs = append(errs, validateFeature(i, f)...)
+	}
+
+	return errors.Join(errs...)
+}
+
+func validateFeature(i int, f Feature) []error {
+	var errs []error
+
+	if f.Name == "" {
+		errs = append(errs, fmt.Errorf("features[%d].name is required", i))
+	}
+
+	switch f.Stability {
+	case StabilityWorking, StabilityUntested, StabilityBreaksSaves:
+	default:
+		errs = append(errs, fmt.Errorf("features[%d] (%s): invalid stability %q", i, f.Name, f.Stability))
+	}
+
+	if len(f.Targets) == 0 {
+		errs = append(errs, fmt.Errorf("features[%d] (%s): at least one platform target is required", i, f.Name))
+	}
+	for plat, tgt := range f.Targets {
+		errs = append(errs, validateTarget(f.Name, plat, tgt)...)
+	}
+
+	return errs
+}
+
+func validateTarget(feature string, plat Platform, tgt Target) []error {
+	var errs []error
+
+	if _, err := validatePatternTokens(tgt.Signature.Pattern); err != nil {
+		errs = append(errs, fmt.Errorf("%s/%s: signature.pattern: %w", feature, plat, err))
+	}
+
+	switch tgt.Type {
+	case FeatureTypePatch:
+		if tgt.Patch == nil {
+			errs = append(errs, fmt.Errorf("%s/%s: type is \"patch\" but patch is not set", feature, plat))
+		}
+		if tgt.Hook != nil {
+			errs = append(errs, fmt.Errorf("%s/%s: type is \"patch\" but hook is also set", feature, plat))
+		}
+		if tgt.Patch != nil {
+			errs = append(errs, validatePatch(feature, plat, tgt.Patch)...)
+		}
+	case FeatureTypeHook:
+		if tgt.Hook == nil {
+			errs = append(errs, fmt.Errorf("%s/%s: type is \"hook\" but hook is not set", feature, plat))
+		}
+		if tgt.Patch != nil {
+			errs = append(errs, fmt.Errorf("%s/%s: type is \"hook\" but patch is also set", feature, plat))
+		}
+		if tgt.Hook != nil {
+			errs = append(errs, validateHook(feature, plat, tgt.Hook)...)
+		}
+	case FeatureTypeFreeze, FeatureTypePointer:
+		errs = append(errs, fmt.Errorf("%s/%s: type %q is reserved but not implemented yet", feature, plat, tgt.Type))
+	case "":
+		errs = append(errs, fmt.Errorf("%s/%s: type is required", feature, plat))
+	default:
+		errs = append(errs, fmt.Errorf("%s/%s: unknown type %q", feature, plat, tgt.Type))
+	}
+
+	return errs
+}
+
+func validatePatch(feature string, plat Platform, p *Patch) []error {
+	var errs []error
+
+	orig, err := validateByteTokens(p.Original)
+	if err != nil {
+		errs = append(errs, fmt.Errorf("%s/%s: patch.original: %w", feature, plat, err))
+	}
+
+	enabled, err := validateByteTokens(p.Enabled)
+	if err != nil {
+		errs = append(errs, fmt.Errorf("%s/%s: patch.enabled: %w", feature, plat, err))
+	}
+
+	if len(orig) != len(enabled) {
+		errs = append(errs, fmt.Errorf(
+			"%s/%s: patch.original and patch.enabled must be the same byte length (%d != %d)",
+			feature, plat, len(orig), len(enabled)))
+	}
+
+	return errs
+}
+
+func validateHook(feature string, plat Platform, h *Hook) []error {
+	var errs []error
+
+	if h.Type != "abs64" {
+		errs = append(errs, fmt.Errorf("%s/%s: hook.type: unsupported %q (only \"abs64\" is supported)", feature, plat, h.Type))
+	}
+
+	if h.Overwrite < minAbs64Overwrite {
+		errs = append(errs, fmt.Errorf("%s/%s: hook.overwrite must be at least %d, got %d", feature, plat, minAbs64Overwrite, h.Overwrite))
+	}
+
+	orig, err := validateByteTokens(h.Original)
+	if err != nil {
+		errs = append(errs, fmt.Errorf("%s/%s: hook.original: %w", feature, plat, err))
+	} else if len(orig) != h.Overwrite {
+		errs = append(errs, fmt.Errorf("%s/%s: hook.original length %d != hook.overwrite %d", feature, plat, len(orig), h.Overwrite))
+	}
+
+	if _, err := validateByteTokens(h.Body); err != nil {
+		errs = append(errs, fmt.Errorf("%s/%s: hook.body: %w", feature, plat, err))
+	}
+
+	return errs
+}
+
+func validatePatternTokens(pattern string) ([]string, error) {
+	toks := strings.Fields(pattern)
+	if len(toks) == 0 {
+		return nil, errors.New("must not be empty")
+	}
+
+	for _, tok := range toks {
+		if !patternToken.MatchString(tok) {
+			return nil, fmt.Errorf("invalid token %q (want two hex digits or ??)", tok)
+		}
+	}
+
+	return toks, nil
+}
+
+func validateByteTokens(hexBytes string) ([]string, error) {
+	toks := strings.Fields(hexBytes)
+	if len(toks) == 0 {
+		return nil, errors.New("must not be empty")
+	}
+
+	for _, tok := range toks {
+		if !byteToken.MatchString(tok) {
+			return nil, fmt.Errorf("invalid byte %q (want two hex digits, no wildcards)", tok)
+		}
+	}
+
+	return toks, nil
+}

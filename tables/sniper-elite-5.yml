@@ -1,0 +1,78 @@
+metadata:
+  # uuid v7 as identifier
+  id: 017f3e5c-1b2a-7e4f-8d3c-9b6a1e2f4c5d
+  # Game Title
+  name: Sniper Elite 5
+  # Cheat table version
+  version: 1.0.0
+  # Author of the cheat table if one
+  author: pawbeans
+  # Description of the cheat table
+  description: Native Linux/Proton trainer for Sniper Elite 5.
+
+  # One entry per binary/module format the game ships, keyed on PE vs ELF (not host OS).
+  # A Windows PE build behaves identically whether it runs natively or under Wine/Proton —
+  # Wine loads the real unmodified PE binary, so "windows" already covers both. Only a
+  # genuinely separate native Linux (ELF) build, produced by a different compiler, would
+  # need its own "linux" entry here. Sniper Elite 5 has no native Linux build, so only
+  # "windows" is populated.
+  platforms:
+    windows:
+      executable: Sniper5_vulkan.exe
+
+  # Compatible game versions
+  compatibleVersions:
+    - 1.0.0
+
+features:
+
+  - name: Immortality
+    hotkey: F1
+    category: Player
+    stability: working
+    note: "Verified: resolved target RVA 0x760cb3e matches FLiNG's known hook slot 1 for this build."
+
+    targets:
+      windows:
+        type: hook
+        signature:
+          pattern: "F3 ?? ?? ?? 68 FF ?? 80 00 00 00 0F ?? ?? 68 ?? ?? 48"
+          offset: 0
+
+        # Code-cave hook: redirects execution into injected logic that forces health
+        # every frame, then jumps back. This is how FLiNG-style trainers actually
+        # implement Immortality - a plain byte patch/NOP can't express "check a flag,
+        # then force a value" on its own.
+        hook:
+          type: abs64
+          overwrite: 15
+
+          original: "F3 0F 11 53 68 FF 90 80 00 00 00 0F 2F 7B 68"
+
+          # FLiNG-generated cheat logic, but WITHOUT its final jump-back.
+          # The engine generates that dynamically.
+          body: >-
+            83 BB 8C 00 00 00 01
+            0F 85 0C 00 00 00
+            C7 43 68 00 00 16 43
+            F3 0F 10 53 68
+            F3 0F 11 53 68
+            FF 90 80 00 00 00
+            0F 2F 7B 68
+
+  - name: No Reload
+    hotkey: F2
+    category: Weapons
+    stability: untested
+    note: "Unverified pattern from the original scaffold; not yet confirmed against a live process."
+
+    targets:
+      windows:
+        type: patch
+        signature:
+          pattern: "89 83 ?? ?? ?? ?? 48 8B"
+          offset: 0
+
+        patch:
+          original: "89 83 18 02 00 00"
+          enabled:  "90 90 90 90 90 90"
