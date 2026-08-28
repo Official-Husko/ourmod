@@ -1,13 +1,16 @@
 import {ViewId} from '../types';
 
-// Matches the mockup's current rail exactly: session (LIBRARY / ATTACH /
-// HOTKEYS), system (SETTINGS / ABOUT). The mockup used to also have a
-// "local" group with TRAINERS/SCRIPTS as separate rail destinations, but
-// those moved into tabs (Library's TRAINERS tab, the game view's SCRIPT
-// tab) - so there's no separate rail item for them anymore.
+// session (LIBRARY / MODS / HOTKEYS), system (SETTINGS / ABOUT). "MODS"
+// (id "game") opens the selected game's panel, which now has its own
+// ATTACH tab rather than being an attach-only destination - the rail item
+// keeps the shorter id/route name it always had. The mockup used to also
+// have a "local" group with TRAINERS/SCRIPTS as separate rail
+// destinations, but those moved into tabs (Library's TRAINERS tab, the
+// game view's SCRIPT tab) - so there's no separate rail item for them
+// anymore.
 const SESSION_ITEMS: {id: ViewId; label: string}[] = [
   {id: 'library', label: 'LIBRARY'},
-  {id: 'game', label: 'ATTACH'},
+  {id: 'game', label: 'MODS'},
   {id: 'hotkeys', label: 'HOTKEYS'},
 ];
 

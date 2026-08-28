@@ -16,10 +16,14 @@ export function EnableFeature(arg1:string):Promise<void>;
 
 export function Features():Promise<Array<desktop.FeatureView>>;
 
+export function GetSavedMods():Promise<desktop.SavedMods>;
+
 export function ListTables():Promise<Array<desktop.TableSummary>>;
 
 export function LoadTable(arg1:string):Promise<Array<desktop.FeatureView>>;
 
 export function ReloadTable():Promise<desktop.ReloadResult>;
+
+export function SetSaveModsEnabled(arg1:boolean):Promise<void>;
 
 export function TableSource(arg1:string):Promise<string>;

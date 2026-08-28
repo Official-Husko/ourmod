@@ -1,7 +1,9 @@
 import {useEffect, useState} from 'preact/hooks';
 import {AttachInfo, ControlView, FeatureView, TableSummary} from '../types';
-import {TableSource} from '../../wailsjs/go/desktop/App';
+import {GetSavedMods, SetSaveModsEnabled, TableSource} from '../../wailsjs/go/desktop/App';
+import {formatChecksum} from '../format';
 import {CommandLine} from '../components/CommandLine';
+import {SignalBox} from '../components/SignalBox';
 import {ToggleRow} from '../components/ToggleRow';
 import {YamlBlock} from '../components/YamlBlock';
 import {useTypewriter} from '../hooks/useTypewriter';
@@ -42,36 +44,47 @@ export function GameView(props: {
         {attachInfo && <span class="status-meta">{activeCount} cheat{activeCount === 1 ? '' : 's'} active</span>}
       </div>
 
-      {attachInfo ? (
-        <AttachedPhase {...props} attachInfo={attachInfo}/>
-      ) : (
-        <AttachPhase {...props}/>
-      )}
+      <GamePanel {...props}/>
     </div>
   );
 }
 
-function AttachPhase(props: {
+// The candidate-process/attach UI, and (once attached) a quiet confirmation
+// - it's a tab within GamePanel rather than its own phase, so switching to
+// CHEATS or SCRIPT to look at the table doesn't require attaching first.
+function AttachTab(props: {
   table: TableSummary;
-  status: string;
+  attachInfo: AttachInfo | null;
   onAttach: () => void;
 }) {
+  const {table, attachInfo, onAttach} = props;
+
+  if (attachInfo) {
+    return (
+      <div class="view-pad">
+        <SignalBox tone="ok" title="ALREADY ATTACHED">
+          PID {attachInfo.pid} &middot; {attachInfo.platform}. Switch to CHEATS to toggle features, or DETACH in the sidebar to let go.
+        </SignalBox>
+      </div>
+    );
+  }
+
   return (
     <div class="view-pad">
-      <CommandLine command={`ourmod-cli -table ${props.table.path} -feature <name>`} right="1 CANDIDATE"/>
+      <CommandLine command={`ourmod-cli -table ${table.path} -feature <name>`} right="1 CANDIDATE"/>
 
       <div class="log-stream">
         <div><span class="dim">00.00</span> enumerating processes by argv[0] basename&hellip;</div>
-        <div><span class="dim">00.01</span> matching against platforms declared in {props.table.name}&hellip;</div>
+        <div><span class="dim">00.01</span> matching against platforms declared in {table.name}&hellip;</div>
         <div class="log-accent"><span class="dim">00.02</span> waiting for target selection</div>
       </div>
 
       <div class="section-label">CANDIDATE</div>
       <div class="candidate-table">
         <div class="candidate-row">
-          <span>{props.table.name}</span>
+          <span>{table.name}</span>
           <span class="dim">not yet resolved</span>
-          <button class="btn btn-primary" onClick={props.onAttach}>ATTACH</button>
+          <button class="btn btn-primary" onClick={onAttach}>ATTACH</button>
         </div>
       </div>
 
@@ -83,26 +96,50 @@ function AttachPhase(props: {
   );
 }
 
-function AttachedPhase(props: {
+function GamePanel(props: {
   table: TableSummary;
   features: FeatureView[];
-  attachInfo: AttachInfo;
+  attachInfo: AttachInfo | null;
   status: string;
   favourite: boolean;
   onToggleFavourite: () => void;
   favouriteCheats: Set<string>;
   onToggleFavouriteCheat: (key: string) => void;
+  onAttach: () => void;
   onDetachAll: () => void;
   onToggle: (name: string, checked: boolean) => void;
 }) {
   const {
     table, features, attachInfo, favourite, onToggleFavourite,
-    favouriteCheats, onToggleFavouriteCheat, onDetachAll, onToggle,
+    favouriteCheats, onToggleFavouriteCheat, onAttach, onDetachAll, onToggle,
   } = props;
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'active' | 'risky'>('all');
-  const [tab, setTab] = useState<'cheats' | 'script' | 'history'>('cheats');
+  const [tab, setTab] = useState<'attach' | 'cheats' | 'script' | 'history'>(attachInfo ? 'cheats' : 'attach');
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [saveModsOn, setSaveModsOn] = useState(false);
+
+  // Refetch whenever the loaded table changes - it's a per-table
+  // preference stored on disk, not something derived from `features`.
+  useEffect(() => {
+    GetSavedMods().then((sm) => setSaveModsOn(sm.enabled)).catch(() => setSaveModsOn(false));
+  }, [table.path]);
+
+  const onToggleSaveMods = async (checked: boolean) => {
+    setSaveModsOn(checked);
+    try {
+      await SetSaveModsEnabled(checked);
+    } catch {
+      setSaveModsOn(!checked);
+    }
+  };
+
+  // Once attaching succeeds, move off the ATTACH tab so the result is
+  // immediately visible - but only if that's where the user was sitting;
+  // don't yank them away from SCRIPT/HISTORY mid-browse.
+  useEffect(() => {
+    if (attachInfo) setTab((t) => (t === 'attach' ? 'cheats' : t));
+  }, [!!attachInfo]);
 
   const toggleCollapsed = (cat: string) => {
     setCollapsed((prev) => {
@@ -153,12 +190,12 @@ function AttachedPhase(props: {
         </div>
         <div class="tag-row">
           <span class="tag">Singleplayer</span>
-          <span class="tag">{attachInfo.platform}</span>
+          {attachInfo && <span class="tag">{attachInfo.platform}</span>}
           {table.version && <span class="tag">table v{table.version}</span>}
         </div>
         <div class="kv-list">
-          <div class="kv-row"><span class="dim">pid</span><span>{attachInfo.pid}</span></div>
-          <div class="kv-row"><span class="dim">checksum</span><span class="mono-sm">{table.checksum.slice(0, 12)}&hellip;</span></div>
+          <div class="kv-row"><span class="dim">pid</span><span>{attachInfo ? attachInfo.pid : '—'}</span></div>
+          <div class="kv-row"><span class="dim">checksum</span><span class="mono-sm">{formatChecksum(table.checksum)}</span></div>
           <div class="kv-row">
             <span class="dim">built for</span>
             <span>{table.compatibleVersions && table.compatibleVersions.length > 0 ? table.compatibleVersions.join(', ') : 'unspecified'}</span>
@@ -178,21 +215,34 @@ function AttachedPhase(props: {
         )}
 
         <div class="sidebar-spacer"/>
-        <div class="toggle-row-boxed">
-          <ToggleRow label="Save mods" hint="Remembers which cheats are switched on now and reapplies them next time you attach."/>
+        <div class={`toggle-row-boxed${saveModsOn ? ' toggle-row-warn' : ''}`}>
+          <ToggleRow
+            label="Save mods"
+            hint="Remembers which cheats are switched on now and reapplies them next time you attach."
+            checked={saveModsOn}
+            onChange={onToggleSaveMods}
+            tone="warn"
+          />
         </div>
-        <button class="btn btn-danger btn-full" onClick={onDetachAll}>DETACH &middot; RESTORE ALL</button>
+        {attachInfo ? (
+          <button class="btn btn-danger btn-full" onClick={onDetachAll}>DETACH &middot; RESTORE ALL</button>
+        ) : (
+          <button class="btn btn-primary btn-full" onClick={onAttach}>ATTACH</button>
+        )}
         <p class="hint">Values revert on detach. Saves already written to disk do not.</p>
       </aside>
 
       <div class="game-main">
         <div class="tab-row">
+          <span class={`tab${tab === 'attach' ? ' tab-active' : ''}`} onClick={() => setTab('attach')}>ATTACH</span>
           <span class={`tab${tab === 'cheats' ? ' tab-active' : ''}`} onClick={() => setTab('cheats')}>
             CHEATS <span class="tab-count">{features.length}</span>
           </span>
           <span class={`tab${tab === 'script' ? ' tab-active' : ''}`} onClick={() => setTab('script')}>SCRIPT</span>
           <span class={`tab${tab === 'history' ? ' tab-active' : ''}`} onClick={() => setTab('history')}>HISTORY</span>
         </div>
+
+        {tab === 'attach' && <AttachTab table={table} attachInfo={attachInfo} onAttach={onAttach}/>}
 
         {tab === 'cheats' && (
           <>
@@ -226,7 +276,7 @@ function AttachedPhase(props: {
                         <FeatureRow
                           key={f.name}
                           feature={f}
-                          attached
+                          attached={!!attachInfo}
                           favourite
                           onToggleFavourite={() => onToggleFavouriteCheat(favouriteKey(table.path, f.name))}
                           onToggle={onToggle}
@@ -250,7 +300,7 @@ function AttachedPhase(props: {
                           <FeatureRow
                             key={f.name}
                             feature={f}
-                            attached
+                            attached={!!attachInfo}
                             favourite={false}
                             onToggleFavourite={() => onToggleFavouriteCheat(favouriteKey(table.path, f.name))}
                             onToggle={onToggle}
@@ -307,7 +357,7 @@ function ScriptTab(props: {table: TableSummary}) {
         <div class="kv-list">
           <div class="kv-row"><span class="dim">path</span><span>{props.table.path}</span></div>
           <div class="kv-row"><span class="dim">cheats</span><span>{props.table.featureCount}</span></div>
-          <div class="kv-row"><span class="dim">checksum</span><span class="mono-sm">{props.table.checksum.slice(0, 12)}&hellip;</span></div>
+          <div class="kv-row"><span class="dim">checksum</span><span class="mono-sm">{formatChecksum(props.table.checksum)}</span></div>
         </div>
         <p class="hint">Edit the file directly on disk - there's no in-app editor yet.</p>
       </div>
@@ -327,9 +377,16 @@ function FeatureRow(props: {
   const disabled = !attached || !f.available || broken;
   const kind = f.control?.kind ?? 'toggle';
 
+  // f.available only means something once attached (it's "does this
+  // feature have a target for the platform we're attached to"); before
+  // that it's always false, since there's no attached platform yet. Don't
+  // dim every row over that while just browsing pre-attach - only the
+  // toggle itself needs to stay disabled, via `disabled` above.
+  const dimmed = attached ? disabled : broken;
+
   const rowClass = [
     'row',
-    disabled && 'unavailable',
+    dimmed && 'unavailable',
     broken && 'broken',
     favourite && 'favourite',
   ].filter(Boolean).join(' ');

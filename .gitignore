@@ -14,7 +14,8 @@ frontend/dist/*
 !frontend/dist/gitkeep
 build/*
 
-# Per-table runtime state (which features are active, and where) - see
+# Per-table runtime state: crash-recovery data (which features are active,
+# and where) plus the Save mods preference - see
 # internal/app/ourmod/desktop/state.go. Machine/session-specific, not part
 # of a cheat table.
 /.ourmod-state

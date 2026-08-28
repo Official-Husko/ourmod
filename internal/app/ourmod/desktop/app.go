@@ -386,6 +386,7 @@ func (a *App) Attach() (AttachInfo, error) {
 	}
 
 	a.recoverPersistedState()
+	a.applySavedMods()
 
 	return AttachInfo{Attached: true, PID: pid, Platform: string(plat), GameName: a.table.Metadata.Name}, nil
 }
@@ -475,6 +476,7 @@ func (a *App) EnableFeature(name string) error {
 		return err
 	}
 	a.persistState()
+	a.syncSavedMods()
 	return nil
 }
 
@@ -487,6 +489,7 @@ func (a *App) DisableFeature(name string) error {
 		return err
 	}
 	a.persistState()
+	a.syncSavedMods()
 	return nil
 }
 
@@ -524,6 +527,93 @@ func (a *App) Features() []FeatureView {
 		})
 	}
 	return out
+}
+
+// SavedMods is the current "Save mods" preference for the currently loaded
+// table: whether it's on, and which features it will reapply on the next
+// attach.
+type SavedMods struct {
+	Enabled  bool     `json:"enabled"`
+	Features []string `json:"features"`
+}
+
+// GetSavedMods reports the currently loaded table's Save mods preference.
+// Read-only - safe to call any time, including with nothing loaded.
+func (a *App) GetSavedMods() SavedMods {
+	if a.tablePath == "" {
+		return SavedMods{}
+	}
+	sm, _ := loadSavedMods(a.tablePath)
+	return SavedMods{Enabled: sm.Enabled, Features: sm.Features}
+}
+
+// SetSaveModsEnabled turns Save mods on or off for the currently loaded
+// table. Turning it on immediately snapshots whatever's active right now
+// (if attached) as the remembered set, matching the toggle's own label -
+// "remembers the cheats switched on now", not some future state. Turning
+// it off leaves the remembered set on disk untouched (so re-enabling it
+// restores the last snapshot) - only the Enabled flag changes, which is
+// what applySavedMods and syncSavedMods actually check.
+func (a *App) SetSaveModsEnabled(enabled bool) error {
+	if a.tablePath == "" {
+		return fmt.Errorf("no table loaded")
+	}
+
+	sm, _ := loadSavedMods(a.tablePath)
+	sm.Enabled = enabled
+	if enabled && a.att != nil {
+		sm.Features = a.att.session.ActiveFeatures()
+	}
+	saveSavedMods(a.tablePath, sm)
+	return nil
+}
+
+// syncSavedMods updates the remembered feature list to match what's
+// actually active, if Save mods is on - called after a deliberate
+// EnableFeature/DisableFeature, so the remembered set always matches "the
+// cheats switched on now". It's deliberately NOT called from DetachAll or
+// revertChangedActiveFeatures: those turn features off without the user
+// asking to stop remembering them, and the whole point of Save mods is
+// that detaching (or a table edit forcing a revert) doesn't erase what to
+// reapply next time.
+func (a *App) syncSavedMods() {
+	sm, ok := loadSavedMods(a.tablePath)
+	if !ok || !sm.Enabled || a.att == nil {
+		return
+	}
+	sm.Features = a.att.session.ActiveFeatures()
+	saveSavedMods(a.tablePath, sm)
+}
+
+// applySavedMods re-enables whatever Save mods remembers for the current
+// table, if it's on - called once, right after a fresh Attach. Each
+// feature is resolved and enabled the normal way; a feature that's gone,
+// renamed, has no target for this platform, or fails to resolve is simply
+// skipped (best-effort - one broken saved entry shouldn't block the rest,
+// or block attaching at all).
+func (a *App) applySavedMods() {
+	sm, ok := loadSavedMods(a.tablePath)
+	if !ok || !sm.Enabled {
+		return
+	}
+
+	for _, name := range sm.Features {
+		f, err := a.table.Find(name)
+		if err != nil {
+			continue
+		}
+		target, ok := f.Targets[a.att.plat]
+		if !ok {
+			continue
+		}
+		site, err := engine.Resolve(a.att.pid, a.att.maps, a.att.base, a.att.imageSize, target.Signature)
+		if err != nil {
+			continue
+		}
+		_ = a.att.session.Enable(f, target, site)
+	}
+
+	a.persistState()
 }
 
 // TableSource returns the raw YAML text of a table file, for the read-only

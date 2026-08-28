@@ -30,6 +30,10 @@ export function Features() {
   return window['go']['desktop']['App']['Features']();
 }
 
+export function GetSavedMods() {
+  return window['go']['desktop']['App']['GetSavedMods']();
+}
+
 export function ListTables() {
   return window['go']['desktop']['App']['ListTables']();
 }
@@ -40,6 +44,10 @@ export function LoadTable(arg1) {
 
 export function ReloadTable() {
   return window['go']['desktop']['App']['ReloadTable']();
+}
+
+export function SetSaveModsEnabled(arg1) {
+  return window['go']['desktop']['App']['SetSaveModsEnabled'](arg1);
 }
 
 export function TableSource(arg1) {

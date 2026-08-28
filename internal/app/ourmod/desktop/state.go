@@ -81,3 +81,51 @@ func savePersistedState(tablePath string, st persistedState) {
 	}
 	_ = os.Rename(tmp, path)
 }
+
+// savedMods is one table's "Save mods" preference: whether it's on, and
+// which features it will reapply on the next attach. Unlike persistedState
+// (crash recovery, keyed to one exact still-running game process and
+// cleared on detach), this is a genuine user preference - it has no PID to
+// go stale against, and survives detach, a game restart, and an ourmod
+// restart alike, by design.
+type savedMods struct {
+	Enabled  bool     `json:"enabled"`
+	Features []string `json:"features"`
+}
+
+func savedModsFilePath(tablePath string) string {
+	name := strings.ReplaceAll(tablePath, string(filepath.Separator), "_")
+	return filepath.Join(stateDir, name+".savedmods.json")
+}
+
+func loadSavedMods(tablePath string) (savedMods, bool) {
+	data, err := os.ReadFile(savedModsFilePath(tablePath))
+	if err != nil {
+		return savedMods{}, false
+	}
+
+	var sm savedMods
+	if err := json.Unmarshal(data, &sm); err != nil {
+		return savedMods{}, false
+	}
+	return sm, true
+}
+
+func saveSavedMods(tablePath string, sm savedMods) {
+	path := savedModsFilePath(tablePath)
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return
+	}
+
+	data, err := json.MarshalIndent(sm, "", "  ")
+	if err != nil {
+		return
+	}
+
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, 0o644); err != nil {
+		return
+	}
+	_ = os.Rename(tmp, path)
+}

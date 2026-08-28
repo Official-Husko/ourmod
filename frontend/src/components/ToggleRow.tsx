@@ -1,17 +1,35 @@
-// A settings-style toggle row: fake switch + label + optional hint text +
-// a "coming soon" badge. Every use today is inert - there's no persisted
-// settings file or saved-mods mechanism yet - so this is always disabled;
-// it exists so a not-yet-implemented behaviour still gets the real layout
-// instead of being left out of the screen entirely.
-export function ToggleRow(props: {label: string; hint?: string}) {
+// A settings-style toggle row: fake switch + label + optional hint text.
+// With no `onChange`, it's inert and shows a "coming soon" badge - that's
+// every use in Settings today, where there's genuinely no settings-
+// persistence layer yet. Passing `checked`/`onChange` turns it into a real,
+// clickable toggle instead (Save mods, on the game panel's sidebar).
+export function ToggleRow(props: {
+  label: string;
+  hint?: string;
+  checked?: boolean;
+  onChange?: (checked: boolean) => void;
+  tone?: 'accent' | 'warn';
+}) {
+  const live = props.onChange !== undefined;
+  const onClass = props.checked ? ` toggle-on toggle-${props.tone ?? 'accent'}` : '';
+
   return (
     <div class="toggle-row">
-      <div class="toggle-fake" aria-disabled="true"/>
+      {live ? (
+        <div
+          class={`toggle-fake toggle-live${onClass}`}
+          role="switch"
+          aria-checked={!!props.checked}
+          onClick={() => props.onChange!(!props.checked)}
+        />
+      ) : (
+        <div class="toggle-fake" aria-disabled="true"/>
+      )}
       <div>
         <div class="toggle-label">{props.label}</div>
         {props.hint && <div class="toggle-hint">{props.hint}</div>}
       </div>
-      <span class="coming-soon">coming soon</span>
+      {!live && <span class="coming-soon">coming soon</span>}
     </div>
   );
 }

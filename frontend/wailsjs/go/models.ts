@@ -197,6 +197,20 @@ export namespace desktop {
 		    return a;
 		}
 	}
+	export class SavedMods {
+	    enabled: boolean;
+	    features: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new SavedMods(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.enabled = source["enabled"];
+	        this.features = source["features"];
+	    }
+	}
 
 }
 

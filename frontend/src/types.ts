@@ -55,6 +55,11 @@ export interface AppStatus {
   features: FeatureView[] | null;
 }
 
+export interface SavedMods {
+  enabled: boolean;
+  features: string[] | null;
+}
+
 export interface BuildInfo {
   goVersion: string;
   os: string;

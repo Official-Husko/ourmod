@@ -1,6 +1,7 @@
 import {useState} from 'preact/hooks';
 import {TableSummary} from '../types';
 import {CommandLine} from '../components/CommandLine';
+import {formatChecksum} from '../format';
 import {useTypewriter} from '../hooks/useTypewriter';
 
 type LibTab = 'games' | 'favourites' | 'trainers';
@@ -156,7 +157,7 @@ function TrainersTable(props: {tables: TableSummary[]}) {
         <div key={t.path} class="trainers-table-row">
           <span class="name">{t.name}</span>
           <span class="dim">{t.featureCount}</span>
-          <span class="dim mono-sm">{t.checksum.slice(0, 8)}&hellip;{t.checksum.slice(-6)}</span>
+          <span class="dim mono-sm">{formatChecksum(t.checksum)}</span>
           <span class="dim">{t.path}</span>
         </div>
       ))}
