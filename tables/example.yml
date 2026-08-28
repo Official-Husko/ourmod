@@ -146,6 +146,22 @@ features:
           original: "EE FF 90 90 90 90 90 90 90 90 90 90 90 90"
           body: "90 90 90 90 90 90 90 90 90 90 90 90 90 90"
 
+          # hook.data wires a slider (or a value control) to a mutable
+          # value living inside the hook's own code cave - e.g. a
+          # FLiNG/Async-style hook body that reads a speed multiplier back
+          # via a RIP-relative reference into its own cave. offset is
+          # relative to the CAVE's base (byte 0, same as body), not to the
+          # end of body or overwrite - exactly what a disassembler would
+          # report for the RIP-relative displacement. The engine writes
+          # this once at enable time (from control.default) and again
+          # live whenever the slider moves, without ever reinstalling the
+          # hook. EXAMPLE ONLY - real offset/type depend on what your own
+          # capture's RIP-relative references actually resolve to.
+          data:
+            offset: 0xc8
+            type: float32
+            source: control
+
   # --- control: action (one or more named one-shot buttons) ---
   - name: Example Teleport
     category: World
