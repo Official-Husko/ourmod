@@ -34,6 +34,10 @@ export function LoadTable(arg1) {
   return window['go']['desktop']['App']['LoadTable'](arg1);
 }
 
+export function ReloadTable() {
+  return window['go']['desktop']['App']['ReloadTable']();
+}
+
 export function TableSource(arg1) {
   return window['go']['desktop']['App']['TableSource'](arg1);
 }

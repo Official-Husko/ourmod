@@ -7,7 +7,9 @@ import {
   Features,
   ListTables,
   LoadTable,
+  ReloadTable,
 } from '../wailsjs/go/desktop/App';
+import {EventsOn} from '../wailsjs/runtime/runtime';
 import {NavRail} from './components/NavRail';
 import {LibraryView} from './views/LibraryView';
 import {GameView} from './views/GameView';
@@ -48,6 +50,23 @@ export function App() {
   useEffect(() => {
     ListTables().then(setTables);
   }, []);
+
+  // Live reload: the Go backend watches tables/ and emits this event
+  // whenever a .yml file changes on disk (exactly the hand-editing
+  // workflow this project uses). Always refresh the Library list; if the
+  // currently loaded table is what changed, reload its features too -
+  // ReloadTable never detaches, so an active session is undisturbed.
+  useEffect(() => {
+    return EventsOn('tables:changed', (path: string) => {
+      ListTables().then(setTables);
+      if (current && path === current.path) {
+        ReloadTable().then((loaded) => setFeatures(loaded ?? [])).catch(() => {
+          // Likely a transient partial write mid-save; the next change
+          // event (editors usually fire several per save) will succeed.
+        });
+      }
+    });
+  }, [current]);
 
   const selectGame = useCallback(async (t: TableSummary) => {
     setAttachInfo(null);

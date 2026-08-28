@@ -57,7 +57,7 @@ func TestLoadFile_SE5(t *testing.T) {
 		}
 	})
 
-	t.Run("No Reload is an untested patch feature", func(t *testing.T) {
+	t.Run("No Reload is an untested hook feature", func(t *testing.T) {
 		f, err := table.Find("no reload") // case-insensitive lookup
 		if err != nil {
 			t.Fatal(err)
@@ -67,20 +67,18 @@ func TestLoadFile_SE5(t *testing.T) {
 		}
 
 		tgt, ok := f.Targets[PlatformWindows]
-		if !ok || tgt.Patch == nil {
-			t.Fatalf("windows target missing patch: %+v (ok=%v)", tgt, ok)
+		if !ok || tgt.Hook == nil {
+			t.Fatalf("windows target missing hook: %+v (ok=%v)", tgt, ok)
 		}
-		if tgt.Type != FeatureTypePatch {
-			t.Errorf("type = %q, want %q", tgt.Type, FeatureTypePatch)
+		if tgt.Type != FeatureTypeHook {
+			t.Errorf("type = %q, want %q", tgt.Type, FeatureTypeHook)
 		}
-		if tgt.Hook != nil {
-			t.Error("patch target should not also have a hook")
+		if tgt.Patch != nil {
+			t.Error("hook target should not also have a patch")
 		}
 
-		orig := strings.Fields(tgt.Patch.Original)
-		enabled := strings.Fields(tgt.Patch.Enabled)
-		if len(orig) != len(enabled) {
-			t.Errorf("original/enabled byte length mismatch: %d != %d", len(orig), len(enabled))
+		if got := len(strings.Fields(tgt.Hook.Original)); got != tgt.Hook.Overwrite {
+			t.Errorf("hook.original has %d bytes, want %d", got, tgt.Hook.Overwrite)
 		}
 	})
 
@@ -89,6 +87,38 @@ func TestLoadFile_SE5(t *testing.T) {
 			t.Error("expected error for unknown feature")
 		}
 	})
+}
+
+func TestValidate_AllStabilityValues(t *testing.T) {
+	baseMeta := Metadata{
+		ID:      "test",
+		Name:    "Test Game",
+		Version: "1.0.0",
+		Platforms: map[Platform]PlatformBinary{
+			PlatformWindows: {Executable: "test.exe"},
+		},
+	}
+	target := Target{
+		Type:      FeatureTypePatch,
+		Signature: Signature{Pattern: "AA BB", Offset: 0},
+		Patch:     &Patch{Original: "AA", Enabled: "90"},
+	}
+
+	for _, s := range []Stability{StabilityWorking, StabilityUntested, StabilityBreaksSaves, StabilityBroken} {
+		t.Run(string(s), func(t *testing.T) {
+			table := CheatTable{
+				Metadata: baseMeta,
+				Features: []Feature{{
+					Name:      "Test Feature",
+					Stability: s,
+					Targets:   map[Platform]Target{PlatformWindows: target},
+				}},
+			}
+			if err := table.Validate(); err != nil {
+				t.Errorf("Validate() = %v, want nil", err)
+			}
+		})
+	}
 }
 
 func TestValidate_TypeConsistency(t *testing.T) {

@@ -87,7 +87,7 @@ func validateFeature(i int, f Feature) []error {
 	}
 
 	switch f.Stability {
-	case StabilityWorking, StabilityUntested, StabilityBreaksSaves:
+	case StabilityWorking, StabilityUntested, StabilityBreaksSaves, StabilityBroken:
 	default:
 		errs = append(errs, fmt.Errorf("features[%d] (%s): invalid stability %q", i, f.Name, f.Stability))
 	}

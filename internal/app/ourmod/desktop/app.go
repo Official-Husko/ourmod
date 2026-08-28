@@ -14,10 +14,20 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
+
+	"github.com/fsnotify/fsnotify"
+	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"github.com/Official-Husko/ourmod/internal/app/ourmod/engine"
 	"github.com/Official-Husko/ourmod/pkg/cheats"
 )
+
+// TablesChangedEvent is the Wails event name emitted whenever a .yml file
+// under tables/ is created, written, or removed. The frontend listens for
+// it to refresh the Library list and, if the changed file is the currently
+// loaded table, call ReloadTable.
+const TablesChangedEvent = "tables:changed"
 
 // TableSummary is a row in the table picker, and the source for the
 // Library/Trainers tab's listing - Checksum and FeatureCount are real
@@ -64,18 +74,64 @@ type attached struct {
 // App is the Wails-bound backend. All exported methods are callable from
 // the frontend; only NewApp/Startup/Shutdown are meant for main.go.
 type App struct {
-	ctx   context.Context
-	table *cheats.CheatTable
-	att   *attached
+	ctx       context.Context
+	table     *cheats.CheatTable
+	tablePath string
+	att       *attached
+	watcher   *fsnotify.Watcher
 }
 
 func NewApp() *App {
 	return &App{}
 }
 
-// Startup is a Wails lifecycle hook (options.App.OnStartup).
+// Startup is a Wails lifecycle hook (options.App.OnStartup). It starts a
+// best-effort watcher on tables/ so hand-editing a .yml file (exactly the
+// workflow this project uses) is picked up without restarting the app.
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
+
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return // live reload just won't be available; nothing else depends on it
+	}
+	if err := watcher.Add("tables"); err != nil {
+		_ = watcher.Close()
+		return
+	}
+
+	a.watcher = watcher
+	go a.watchTables()
+}
+
+// watchTables debounces fsnotify's often-multiple events per save (editors
+// commonly write+rename) into a single TablesChangedEvent per quiet period.
+func (a *App) watchTables() {
+	var debounce *time.Timer
+
+	for {
+		select {
+		case event, ok := <-a.watcher.Events:
+			if !ok {
+				return
+			}
+			if filepath.Ext(event.Name) != ".yml" {
+				continue
+			}
+			if debounce != nil {
+				debounce.Stop()
+			}
+			path := event.Name
+			debounce = time.AfterFunc(150*time.Millisecond, func() {
+				wailsruntime.EventsEmit(a.ctx, TablesChangedEvent, path)
+			})
+
+		case _, ok := <-a.watcher.Errors:
+			if !ok {
+				return
+			}
+		}
+	}
 }
 
 // Shutdown is a Wails lifecycle hook (options.App.OnShutdown): restore
@@ -83,6 +139,9 @@ func (a *App) Startup(ctx context.Context) {
 // cmd/ourmod-cli gives on Ctrl+C.
 func (a *App) Shutdown(context.Context) {
 	_ = a.DetachAll()
+	if a.watcher != nil {
+		_ = a.watcher.Close()
+	}
 }
 
 // ListTables returns every cheat table found under tables/.
@@ -118,6 +177,27 @@ func (a *App) LoadTable(path string) ([]FeatureView, error) {
 	_ = a.DetachAll()
 
 	table, err := cheats.LoadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	a.table = table
+	a.tablePath = path
+	return a.Features(), nil
+}
+
+// ReloadTable re-reads the currently loaded table's file from disk and
+// returns the refreshed feature list, *without* detaching - unlike
+// LoadTable, this is meant to be called in response to a live file edit
+// while a session may already be attached, so it must not disturb it.
+// Enabled features stay enabled even if their signature/hook data changed
+// underneath them; the next toggle resolves against the new data.
+func (a *App) ReloadTable() ([]FeatureView, error) {
+	if a.tablePath == "" {
+		return nil, fmt.Errorf("no table loaded")
+	}
+
+	table, err := cheats.LoadFile(a.tablePath)
 	if err != nil {
 		return nil, err
 	}

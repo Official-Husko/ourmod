@@ -3,6 +3,7 @@ module github.com/Official-Husko/ourmod
 go 1.26.3
 
 require (
+	github.com/fsnotify/fsnotify v1.10.1
 	github.com/wailsapp/wails/v2 v2.10.2
 	golang.org/x/sys v0.47.0
 	gopkg.in/yaml.v3 v3.0.1

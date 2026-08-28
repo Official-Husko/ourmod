@@ -11,6 +11,10 @@ const (
 	StabilityWorking     Stability = "working"
 	StabilityUntested    Stability = "untested"
 	StabilityBreaksSaves Stability = "breaks-saves"
+	// StabilityBroken means someone actually tried this feature and it did
+	// not work - distinct from StabilityUntested (never tried) and
+	// StabilityBreaksSaves (works, but corrupts saves).
+	StabilityBroken Stability = "broken"
 )
 
 // Platform is the binary/module format axis: "windows" (PE - native or under
@@ -77,12 +81,16 @@ type PlatformBinary struct {
 
 // Feature is a single toggleable cheat.
 type Feature struct {
-	Name      string              `yaml:"name"`
-	Hotkey    string              `yaml:"hotkey,omitempty"`
-	Category  string              `yaml:"category,omitempty"`
-	Stability Stability           `yaml:"stability"`
-	Note      string              `yaml:"note,omitempty"`
-	Targets   map[Platform]Target `yaml:"targets"`
+	Name      string    `yaml:"name"`
+	Hotkey    string    `yaml:"hotkey,omitempty"`
+	Category  string    `yaml:"category,omitempty"`
+	Stability Stability `yaml:"stability"`
+	// Note is player-facing: a short description of what the feature does,
+	// or a quirk to be aware of (e.g. "disables achievements", "only works
+	// in campaign"). It is shown directly in the UI - not the place for
+	// reverse-engineering/provenance detail about the signature or hook.
+	Note    string              `yaml:"note,omitempty"`
+	Targets map[Platform]Target `yaml:"targets"`
 }
 
 // Target is one platform's resolution+action pair. Type declares which

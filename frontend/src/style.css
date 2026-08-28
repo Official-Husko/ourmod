@@ -514,6 +514,8 @@ input:focus { outline: none; border-color: var(--border-strong); }
 .stability.untested::before { content: "\25b2 "; }
 .stability.breaks-saves { color: var(--err); }
 .stability.breaks-saves::before { content: "\25a0 "; }
+.stability.broken { color: var(--err); }
+.stability.broken::before { content: "\2715 "; }
 
 .note { grid-column: 2 / -1; padding-top: 3px; font-size: 10px; color: var(--text-dim); line-height: 1.5; }
 
@@ -904,13 +906,11 @@ footer {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 6px 12px;
-  border: 1px solid var(--border);
-  background: rgba(126, 240, 176, 0.03);
+  padding: 6px 0;
   font-size: 11px;
 }
 
-.command-line-cmd { color: var(--text); }
+.command-line-cmd { color: var(--text-dim); }
 
 .command-cursor {
   display: inline-block;
