@@ -204,7 +204,7 @@ export function App() {
 
       <div class="content">
         {view === 'library' && (
-          <LibraryView tables={tables} onSelect={selectGame} favourites={favourites} onToggleFavourite={toggleFavourite} showArtwork={showArtwork}/>
+          <LibraryView tables={tables} onSelect={selectGame} favourites={favourites} onToggleFavourite={toggleFavourite}/>
         )}
 
         {view === 'game' && current && (
@@ -226,7 +226,7 @@ export function App() {
           />
         )}
         {view === 'game' && !current && (
-          <LibraryView tables={tables} onSelect={selectGame} favourites={favourites} onToggleFavourite={toggleFavourite} showArtwork={showArtwork}/>
+          <LibraryView tables={tables} onSelect={selectGame} favourites={favourites} onToggleFavourite={toggleFavourite}/>
         )}
 
         {view === 'hotkeys' && (

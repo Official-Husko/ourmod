@@ -13,9 +13,8 @@ export function LibraryView(props: {
   onSelect: (t: TableSummary) => void;
   favourites: Set<string>;
   onToggleFavourite: (path: string) => void;
-  showArtwork: boolean;
 }) {
-  const {tables, favourites, onToggleFavourite, showArtwork} = props;
+  const {tables, favourites, onToggleFavourite} = props;
   const [tab, setTab] = useState<LibTab>('games');
   const [query, setQuery] = useState('');
 
@@ -81,7 +80,6 @@ export function LibraryView(props: {
           onToggleFavourite={onToggleFavourite}
           onSelect={props.onSelect}
           emptyHint={tab === 'favourites' ? 'No favourites yet - star a game from its card.' : undefined}
-          showArtwork={showArtwork}
         />
       )}
     </div>
@@ -97,7 +95,6 @@ function GameGrid(props: {
   onToggleFavourite: (path: string) => void;
   onSelect: (t: TableSummary) => void;
   emptyHint?: string;
-  showArtwork: boolean;
 }) {
   const filtered = props.tables.filter((t) => t.name.toLowerCase().includes(props.query.toLowerCase()));
 
@@ -130,22 +127,18 @@ function GameGrid(props: {
               <div key={t.path} class="game-card" onClick={() => props.onSelect(t)}>
                 <div class="game-card-art">
                   <span>{t.name.slice(0, 2).toUpperCase()}</span>
-                  {props.showArtwork && (
-                    <FallbackImage
-                      key={t.path}
-                      class="game-card-cover-img"
-                      alt={`${t.name} cover art`}
-                      srcs={[hasSteamAppId(t.steamAppId) && steamHeaderUrl(t.steamAppId), t.headerUrl]}
-                    />
-                  )}
-                  {props.showArtwork && (
-                    <FallbackImage
-                      key={t.path}
-                      class="game-card-logo-overlay"
-                      alt=""
-                      srcs={[hasSteamAppId(t.steamAppId) && steamLogoUrl(t.steamAppId), t.logoUrl]}
-                    />
-                  )}
+                  <FallbackImage
+                    key={t.path}
+                    class="game-card-cover-img"
+                    alt={`${t.name} cover art`}
+                    srcs={[hasSteamAppId(t.steamAppId) && steamHeaderUrl(t.steamAppId), t.headerUrl]}
+                  />
+                  <FallbackImage
+                    key={t.path}
+                    class="game-card-logo-overlay"
+                    alt=""
+                    srcs={[hasSteamAppId(t.steamAppId) && steamLogoUrl(t.steamAppId), t.logoUrl]}
+                  />
                   {t.gameSource && <span class="game-card-source">{t.gameSource.toUpperCase()}</span>}
                   <span
                     class={`game-card-star${fav ? ' game-card-star-on' : ''}`}

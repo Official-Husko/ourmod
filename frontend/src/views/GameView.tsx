@@ -1,6 +1,7 @@
 import {useEffect, useState} from 'preact/hooks';
 import {AttachInfo, ControlView, FeatureView, TableSummary} from '../types';
 import {GetSavedMods, SetFeatureValue, SetSaveModsEnabled, TableSource} from '../../wailsjs/go/desktop/App';
+import {BrowserOpenURL} from '../../wailsjs/runtime/runtime';
 import {formatChecksum} from '../format';
 import {hasSteamAppId, steamHeaderUrl, steamHeroUrl, steamLogoUrl} from '../steamArt';
 import {CommandLine} from '../components/CommandLine';
@@ -33,11 +34,25 @@ export function GameView(props: {
   onDetachAll: () => void;
   onToggle: (name: string, checked: boolean) => void;
 }) {
-  const {table, features, attachInfo, onBack} = props;
+  const {table, features, attachInfo, showArtwork, onBack} = props;
   const activeCount = features.filter((f) => f.active).length;
 
   return (
     <div class="game-view">
+      {showArtwork && (
+        <>
+          {/* A sibling of .view-header, not a child of .attached-layout
+              below - so the artwork bleeds up behind the top status bar
+              too, matching the mockup, instead of starting only below it. */}
+          <FallbackImage
+            key={table.path}
+            class="game-hero-bg"
+            alt=""
+            srcs={[hasSteamAppId(table.steamAppId) && steamHeroUrl(table.steamAppId), table.heroUrl]}
+          />
+          <div class="game-hero-overlay"/>
+        </>
+      )}
       <div class="view-header">
         <span class="breadcrumb" onClick={onBack}>&larr; library</span>
         <span> / {table.name}</span>
@@ -110,14 +125,13 @@ function GamePanel(props: {
   favouriteCheats: Set<string>;
   onToggleFavouriteCheat: (key: string) => void;
   onFeaturesRefresh: () => void;
-  showArtwork: boolean;
   onAttach: () => void;
   onDetachAll: () => void;
   onToggle: (name: string, checked: boolean) => void;
 }) {
   const {
     table, features, attachInfo, favourite, onToggleFavourite,
-    favouriteCheats, onToggleFavouriteCheat, onFeaturesRefresh, showArtwork, onAttach, onDetachAll, onToggle,
+    favouriteCheats, onToggleFavouriteCheat, onFeaturesRefresh, onAttach, onDetachAll, onToggle,
   } = props;
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'active' | 'risky'>('all');
@@ -192,40 +206,36 @@ function GamePanel(props: {
 
   return (
     <div class="attached-layout">
-      {showArtwork && (
-        <>
-          <FallbackImage
-            key={table.path}
-            class="game-hero-bg"
-            alt=""
-            srcs={[hasSteamAppId(table.steamAppId) && steamHeroUrl(table.steamAppId), table.heroUrl]}
-          />
-          <div class="game-hero-overlay"/>
-        </>
-      )}
       <aside class="game-sidebar">
         <div class="game-cover">
           <span>{table.name.slice(0, 2).toUpperCase()}</span>
-          {showArtwork && (
-            <FallbackImage
-              key={table.path}
-              class="game-cover-img"
-              alt={`${table.name} cover art`}
-              srcs={[hasSteamAppId(table.steamAppId) && steamHeaderUrl(table.steamAppId), table.headerUrl]}
-            />
-          )}
-          {showArtwork && (
-            <FallbackImage
-              key={table.path}
-              class="game-logo-overlay"
-              alt=""
-              srcs={[hasSteamAppId(table.steamAppId) && steamLogoUrl(table.steamAppId), table.logoUrl]}
-            />
-          )}
+          <FallbackImage
+            key={table.path}
+            class="game-cover-img"
+            alt={`${table.name} cover art`}
+            srcs={[hasSteamAppId(table.steamAppId) && steamHeaderUrl(table.steamAppId), table.headerUrl]}
+          />
+          <FallbackImage
+            key={table.path}
+            class="game-logo-overlay"
+            alt=""
+            srcs={[hasSteamAppId(table.steamAppId) && steamLogoUrl(table.steamAppId), table.logoUrl]}
+          />
           {table.gameSource && <span class="game-source-badge">{table.gameSource.toUpperCase()}</span>}
         </div>
         <div class="game-title-row">
-          <div class="game-title">{table.name}</div>
+          {hasSteamAppId(table.steamAppId) ? (
+            <a
+              class="game-title game-title-link"
+              href={`https://store.steampowered.com/app/${table.steamAppId}/`}
+              title="Open Steam store page"
+              onClick={(e) => { e.preventDefault(); BrowserOpenURL(`https://store.steampowered.com/app/${table.steamAppId}/`); }}
+            >
+              {table.name}
+            </a>
+          ) : (
+            <div class="game-title">{table.name}</div>
+          )}
           <span
             class={`fav-badge${favourite ? ' fav-badge-on' : ''}`}
             onClick={onToggleFavourite}

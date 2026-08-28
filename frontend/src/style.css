@@ -220,6 +220,8 @@ code { font-family: var(--mono); }
 }
 
 .view-header {
+  position: relative;
+  z-index: 1;
   flex: none;
   display: flex;
   align-items: center;
@@ -518,7 +520,7 @@ input:focus { outline: none; border-color: var(--border-strong); }
 
 /* --- game view (reuses .status/.feature-list/.category/.row/etc) --- */
 
-.game-view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.game-view { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 
 .status {
   flex: none;
@@ -916,7 +918,7 @@ footer {
   left: 0;
   top: 0;
   right: 0;
-  height: 380px;
+  height: 420px;
   width: 100%;
   object-fit: cover;
   object-position: 50% 35%;
@@ -935,7 +937,7 @@ footer {
   left: 0;
   top: 0;
   right: 0;
-  height: 380px;
+  height: 420px;
   /* Reaches a fully opaque, page-matching color (var(--bg-deep), not a
      translucent rgba) well before the box ends, then holds it - so
      there's a solid run of matching color bridging into the plain page
@@ -1017,6 +1019,8 @@ footer {
   z-index: 2;
 }
 .game-title { font-size: 19px; font-weight: 700; color: var(--text); }
+.game-title-link { text-decoration: none; cursor: pointer; }
+.game-title-link:hover { color: var(--accent); text-decoration: underline; }
 
 .game-title-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 

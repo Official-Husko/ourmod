@@ -55,8 +55,8 @@ export function SettingsView(props: {
           <ToggleRow label="Check for table updates on launch" hint="No update server exists yet." />
           <ToggleRow label="Back up the save folder before a cheat marked BREAKS SAVES" />
           <ToggleRow
-            label="Show game artwork"
-            hint="Cover, logo, and background art on the game page - from Steam if a table declares a steamAppId, or its own logoUrl/heroUrl otherwise."
+            label="Show Game Artwork in Background"
+            hint="The hero image behind the game page's top bar and sidebar - from Steam if a table declares a steamAppId, or its own heroUrl otherwise. Cover and logo art always show."
             checked={props.showArtwork}
             onChange={props.onToggleArtwork}
           />
