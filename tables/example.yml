@@ -30,17 +30,35 @@ metadata:
   # it doesn't apply.
   gameSource: steam
 
-  # SteamAppID (EXAMPLE ONLY - "0" below is a placeholder, not a real app
-  # ID): when set, it's enough on its own to derive real Steam cover/hero
-  # art client-side. Find a game's real app ID in its Steam store URL,
-  # e.g. store.steampowered.com/app/<this number>/.
+  # SteamAppID: when set, it's enough on its own to derive three real Steam
+  # CDN images client-side (frontend/src/steamArt.ts) - no API call, just a
+  # predictable URL keyed on the app id, the same paths the Steam client
+  # itself uses:
+  #   - sidebar cover  <- header.jpg          (the 460x215 landscape capsule
+  #                                             - matches the cover box's
+  #                                             own landscape shape)
+  #   - hero background <- library_hero.jpg   (Settings > Show game artwork
+  #                                             can turn this one off)
+  #   - logo overlay   <- logo.png
+  # Find a game's real app id in its Steam store URL, e.g.
+  # store.steampowered.com/app/<this number>/.
+  #
+  # "0" below is deliberately NOT a placeholder for "no id" - the frontend
+  # treats "0" the same as unset (hasSteamAppId in steamArt.ts), because
+  # app id 0 is a real, valid id on Steam's CDN (Valve's own internal
+  # placeholder app) that resolves with a genuine tiny blank image instead
+  # of a 404. Left unguarded, that blank image would "succeed" and the
+  # header/logo/heroUrl fallbacks below would never even be tried.
   steamAppId: 0
 
-  # LogoURL / HeroURL: direct image URLs, only needed if the game isn't on
-  # Steam (no SteamAppID to derive art from) or you want to override the
-  # derived art. Uncomment and fill in if you need them:
-  logoUrl: https://example.com/path/to/logo.png
-  heroUrl: https://cdn2.steamgriddb.com/grid/334b2a62e44b388e868c4f709176df17.png
+  # HeaderURL / LogoURL / HeroURL: direct image URLs, tried only as a
+  # fallback - when steamAppId is unset, OR when the Steam-derived image
+  # for that slot fails to load (FallbackImage's onError moves to the next
+  # candidate). HeaderURL is named to match Steam's own header.jpg, the
+  # file it backs up for the sidebar cover.
+  headerUrl: https://cdn2.steamgriddb.com/grid/334b2a62e44b388e868c4f709176df17.png
+  logoUrl: https://cdn2.steamgriddb.com/logo/08bb44b3ef827dfdc38899fdd440b54c.png
+  heroUrl: https://cdn2.steamgriddb.com/hero/8b3bff7384cfaa945eaf210e4df4692f.png
 
   # SourceURL (EXAMPLE ONLY): where this exact file can be checked for
   # updates - typically a raw GitHub URL to this table in your repo. Not
