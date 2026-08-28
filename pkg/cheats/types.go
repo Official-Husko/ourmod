@@ -115,11 +115,14 @@ type Metadata struct {
 	// no other field is required alongside it.
 	SteamAppID string `yaml:"steamAppId,omitempty"`
 
-	// LogoURL/HeroURL are direct image URLs, used when there's no
-	// SteamAppID to derive art from (a non-Steam game) or to override what
-	// it would derive.
-	LogoURL string `yaml:"logoUrl,omitempty"`
-	HeroURL string `yaml:"heroUrl,omitempty"`
+	// HeaderURL/LogoURL/HeroURL are direct image URLs, used when there's no
+	// SteamAppID to derive art from (a non-Steam game), or as the fallback
+	// when the Steam-derived image for that slot fails to load, or to
+	// override what it would derive. HeaderURL backs the sidebar cover -
+	// named to match Steam's own header.jpg, the file it's a fallback for.
+	HeaderURL string `yaml:"headerUrl,omitempty"`
+	LogoURL   string `yaml:"logoUrl,omitempty"`
+	HeroURL   string `yaml:"heroUrl,omitempty"`
 
 	// SourceURL is where a hand-authored/custom table can be checked for
 	// updates - e.g. a raw GitHub URL to this same file. Not wired to

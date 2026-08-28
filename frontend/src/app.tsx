@@ -54,6 +54,27 @@ export function App() {
     });
   };
 
+  // Whether to show a game's cover/hero artwork - a display preference,
+  // not game state, so it's real and backed by localStorage (per-viewer,
+  // survives a restart) rather than needing the settings-persistence layer
+  // the rest of Settings' toggles are still honestly waiting on. Defaults
+  // on if localStorage is unreadable (private window, blocked site data).
+  const [showArtwork, setShowArtwork] = useState(() => {
+    try {
+      return localStorage.getItem('ourmod:showArtwork') !== '0';
+    } catch {
+      return true;
+    }
+  });
+  const onToggleArtwork = (checked: boolean) => {
+    setShowArtwork(checked);
+    try {
+      localStorage.setItem('ourmod:showArtwork', checked ? '1' : '0');
+    } catch {
+      // Best-effort - the toggle still works for this session either way.
+    }
+  };
+
   const showError = useCallback((err: unknown) => {
     const msg = err instanceof Error ? err.message : String(err);
     setError(msg);
@@ -183,7 +204,7 @@ export function App() {
 
       <div class="content">
         {view === 'library' && (
-          <LibraryView tables={tables} onSelect={selectGame} favourites={favourites} onToggleFavourite={toggleFavourite}/>
+          <LibraryView tables={tables} onSelect={selectGame} favourites={favourites} onToggleFavourite={toggleFavourite} showArtwork={showArtwork}/>
         )}
 
         {view === 'game' && current && (
@@ -197,6 +218,7 @@ export function App() {
             favouriteCheats={favouriteCheats}
             onToggleFavouriteCheat={toggleFavouriteCheat}
             onFeaturesRefresh={refreshFeatures}
+            showArtwork={showArtwork}
             onBack={() => setView('library')}
             onAttach={onAttach}
             onDetachAll={onDetachAll}
@@ -204,7 +226,7 @@ export function App() {
           />
         )}
         {view === 'game' && !current && (
-          <LibraryView tables={tables} onSelect={selectGame} favourites={favourites} onToggleFavourite={toggleFavourite}/>
+          <LibraryView tables={tables} onSelect={selectGame} favourites={favourites} onToggleFavourite={toggleFavourite} showArtwork={showArtwork}/>
         )}
 
         {view === 'hotkeys' && (
@@ -217,7 +239,13 @@ export function App() {
         )}
 
         {view === 'settings' && (
-          <SettingsView attached={!!attachInfo} onDetachAll={onDetachAll} current={current}/>
+          <SettingsView
+            attached={!!attachInfo}
+            onDetachAll={onDetachAll}
+            current={current}
+            showArtwork={showArtwork}
+            onToggleArtwork={onToggleArtwork}
+          />
         )}
 
         {view === 'about' && <AboutView/>}

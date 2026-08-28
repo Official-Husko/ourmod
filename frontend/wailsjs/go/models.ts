@@ -96,6 +96,7 @@ export namespace desktop {
 	    compatibleVersions: string[];
 	    gameSource: string;
 	    steamAppId: string;
+	    headerUrl: string;
 	    logoUrl: string;
 	    heroUrl: string;
 	    sourceUrl: string;
@@ -115,6 +116,7 @@ export namespace desktop {
 	        this.compatibleVersions = source["compatibleVersions"];
 	        this.gameSource = source["gameSource"];
 	        this.steamAppId = source["steamAppId"];
+	        this.headerUrl = source["headerUrl"];
 	        this.logoUrl = source["logoUrl"];
 	        this.heroUrl = source["heroUrl"];
 	        this.sourceUrl = source["sourceUrl"];

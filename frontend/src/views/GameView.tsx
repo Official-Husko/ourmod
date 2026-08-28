@@ -2,7 +2,9 @@ import {useEffect, useState} from 'preact/hooks';
 import {AttachInfo, ControlView, FeatureView, TableSummary} from '../types';
 import {GetSavedMods, SetFeatureValue, SetSaveModsEnabled, TableSource} from '../../wailsjs/go/desktop/App';
 import {formatChecksum} from '../format';
+import {hasSteamAppId, steamHeaderUrl, steamHeroUrl, steamLogoUrl} from '../steamArt';
 import {CommandLine} from '../components/CommandLine';
+import {FallbackImage} from '../components/FallbackImage';
 import {SignalBox} from '../components/SignalBox';
 import {ToggleRow} from '../components/ToggleRow';
 import {YamlBlock} from '../components/YamlBlock';
@@ -25,6 +27,7 @@ export function GameView(props: {
   favouriteCheats: Set<string>;
   onToggleFavouriteCheat: (key: string) => void;
   onFeaturesRefresh: () => void;
+  showArtwork: boolean;
   onBack: () => void;
   onAttach: () => void;
   onDetachAll: () => void;
@@ -107,13 +110,14 @@ function GamePanel(props: {
   favouriteCheats: Set<string>;
   onToggleFavouriteCheat: (key: string) => void;
   onFeaturesRefresh: () => void;
+  showArtwork: boolean;
   onAttach: () => void;
   onDetachAll: () => void;
   onToggle: (name: string, checked: boolean) => void;
 }) {
   const {
     table, features, attachInfo, favourite, onToggleFavourite,
-    favouriteCheats, onToggleFavouriteCheat, onFeaturesRefresh, onAttach, onDetachAll, onToggle,
+    favouriteCheats, onToggleFavouriteCheat, onFeaturesRefresh, showArtwork, onAttach, onDetachAll, onToggle,
   } = props;
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'active' | 'risky'>('all');
@@ -188,9 +192,37 @@ function GamePanel(props: {
 
   return (
     <div class="attached-layout">
+      {showArtwork && (
+        <>
+          <FallbackImage
+            key={table.path}
+            class="game-hero-bg"
+            alt=""
+            srcs={[hasSteamAppId(table.steamAppId) && steamHeroUrl(table.steamAppId), table.heroUrl]}
+          />
+          <div class="game-hero-overlay"/>
+        </>
+      )}
       <aside class="game-sidebar">
         <div class="game-cover">
           <span>{table.name.slice(0, 2).toUpperCase()}</span>
+          {showArtwork && (
+            <FallbackImage
+              key={table.path}
+              class="game-cover-img"
+              alt={`${table.name} cover art`}
+              srcs={[hasSteamAppId(table.steamAppId) && steamHeaderUrl(table.steamAppId), table.headerUrl]}
+            />
+          )}
+          {showArtwork && (
+            <FallbackImage
+              key={table.path}
+              class="game-logo-overlay"
+              alt=""
+              srcs={[hasSteamAppId(table.steamAppId) && steamLogoUrl(table.steamAppId), table.logoUrl]}
+            />
+          )}
+          {table.gameSource && <span class="game-source-badge">{table.gameSource.toUpperCase()}</span>}
         </div>
         <div class="game-title-row">
           <div class="game-title">{table.name}</div>

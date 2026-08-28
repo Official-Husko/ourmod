@@ -310,18 +310,48 @@ input:focus { outline: none; border-color: var(--border-strong); }
 .game-card:hover { background: rgba(126, 240, 176, 0.06); border-color: var(--border-strong); }
 
 .game-card-art {
+  position: relative;
   height: 104px;
   border-bottom: 1px solid var(--border);
   background-image: repeating-linear-gradient(45deg, rgba(126, 240, 176, 0.11) 0 1px, transparent 1px 7px);
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 
 .game-card-art span {
   font-size: 22px;
   font-weight: 700;
   color: rgba(126, 240, 176, 0.35);
+}
+
+.game-card-cover-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 18%; }
+
+/* Same bottom-fade scrim as the game panel's sidebar cover, so the logo
+   stays legible over cover art of any brightness. */
+.game-card-art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(10, 12, 11, 0) 45%, rgba(10, 12, 11, 0.88) 100%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Fixed box, not natural image size - see .game-logo-overlay's comment on
+   the game panel sidebar for why (Steam's logo.png and a table's own
+   logoUrl fallback are different images with different aspect ratios). */
+.game-card-logo-overlay {
+  position: absolute;
+  left: 8px;
+  bottom: 7px;
+  width: 110px;
+  height: 28px;
+  object-fit: contain;
+  object-position: left bottom;
+  filter: drop-shadow(0 1px 5px rgba(6, 18, 12, 0.7));
+  z-index: 2;
 }
 
 .game-card-body { padding: 10px 11px 11px; display: flex; flex-direction: column; gap: 4px; }
@@ -331,14 +361,14 @@ input:focus { outline: none; border-color: var(--border-strong); }
 .game-card-source {
   position: absolute;
   left: 8px;
-  bottom: 8px;
+  top: 8px;
   padding: 2px 6px;
   background: rgba(10, 12, 11, 0.82);
   font-size: 9px;
   letter-spacing: 0.1em;
   color: var(--text-dim);
+  z-index: 2;
 }
-.game-card-art { position: relative; }
 
 .lib-tab-row { display: flex; align-items: center; gap: 4px; border-bottom: 1px solid var(--border); margin: 0 -20px; padding: 0 20px; }
 
@@ -357,10 +387,11 @@ input:focus { outline: none; border-color: var(--border-strong); }
 .game-card-star {
   position: absolute;
   right: 8px;
-  top: 7px;
+  top: 4px;
   font-size: 13px;
   color: var(--text-faint);
   cursor: pointer;
+  z-index: 2;
 }
 
 .game-card-star-on { color: var(--accent); text-shadow: 0 0 12px var(--accent-glow); }
@@ -873,9 +904,51 @@ footer {
 
 /* --- attached phase --- */
 
-.attached-layout { flex: 1; min-height: 0; display: flex; }
+.attached-layout { position: relative; flex: 1; min-height: 0; display: flex; overflow: hidden; }
+
+/* Optional hero art (Settings > Show game artwork): sits behind the whole
+   panel, faded and masked to a soft bottom edge so it reads as scene
+   dressing, not a slab pasted over the UI. Sidebar/main both get their own
+   stacking context (below) so this never has to fight their own
+   backgrounds for legibility. */
+.game-hero-bg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  height: 380px;
+  width: 100%;
+  object-fit: cover;
+  object-position: 50% 35%;
+  opacity: 0.4;
+  /* Fully transparent well before the box's own bottom edge (80%, not
+     100%) - otherwise the fade and the box's hard edge land on the same
+     pixel and read as a cut line instead of a blend. */
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.55) 45%, rgba(0, 0, 0, 0) 80%);
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.55) 45%, rgba(0, 0, 0, 0) 80%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.game-hero-overlay {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  height: 380px;
+  /* Reaches a fully opaque, page-matching color (var(--bg-deep), not a
+     translucent rgba) well before the box ends, then holds it - so
+     there's a solid run of matching color bridging into the plain page
+     background below, rather than the tint just stopping at some
+     percentage and leaving a visible seam where the box's own edge is. */
+  background: linear-gradient(to bottom, rgba(8, 10, 9, 0.3) 0%, rgba(10, 12, 11, 0.6) 40%, var(--bg-deep) 78%, var(--bg-deep) 100%);
+  pointer-events: none;
+  z-index: 0;
+}
 
 .game-sidebar {
+  position: relative;
+  z-index: 1;
   width: 300px;
   flex: none;
   border-right: 1px solid var(--border);
@@ -887,15 +960,62 @@ footer {
 }
 
 .game-cover {
+  position: relative;
   height: 130px;
   border: 1px solid var(--border);
   background-image: repeating-linear-gradient(45deg, rgba(126, 240, 176, 0.11) 0 1px, transparent 1px 7px);
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 
 .game-cover span { font-size: 30px; font-weight: 700; color: rgba(126, 240, 176, 0.35); }
+
+.game-cover-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 18%; }
+
+/* Scrim so the logo/badge stay legible over cover art of any brightness -
+   a pseudo-element instead of another DOM layer, matching the mockup's own
+   bottom-fade treatment. */
+.game-cover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(10, 12, 11, 0) 38%, rgba(10, 12, 11, 0.86) 100%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* A fixed box, not max-width/max-height: with no explicit width+height an
+   <img> just renders at its own natural size (object-fit only resolves
+   inside an actually-sized box), so the Steam logo and a table's own
+   logoUrl fallback - different source images, different aspect ratios -
+   would each come out a different size. Pinning both dimensions and
+   letting object-fit:contain do the scaling is what makes them consistent
+   regardless of which one loaded. */
+.game-logo-overlay {
+  position: absolute;
+  left: 10px;
+  bottom: 8px;
+  width: 150px;
+  height: 40px;
+  object-fit: contain;
+  object-position: left bottom;
+  filter: drop-shadow(0 1px 6px rgba(6, 18, 12, 0.7));
+  z-index: 2;
+}
+
+.game-source-badge {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  padding: 2px 6px;
+  background: rgba(10, 12, 11, 0.82);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+  z-index: 2;
+}
 .game-title { font-size: 19px; font-weight: 700; color: var(--text); }
 
 .game-title-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
@@ -936,7 +1056,7 @@ footer {
 .sidebar-spacer { flex: 1; }
 .btn-full { width: 100%; }
 
-.game-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.game-main { position: relative; z-index: 1; flex: 1; min-width: 0; display: flex; flex-direction: column; }
 
 .tab-row { flex: none; display: flex; align-items: center; gap: 4px; padding: 0 20px; border-bottom: 1px solid var(--border); }
 

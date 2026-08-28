@@ -5,15 +5,23 @@ import {CommandLine} from '../components/CommandLine';
 import {ToggleRow} from '../components/ToggleRow';
 import {YamlBlock} from '../components/YamlBlock';
 
-// Behavior toggles below are real UI matching the mockup, but *inert*: none
-// of them are backed by anything yet - there's no persisted settings file,
-// no auto-attach polling loop, no overlay window, and no update-fetching
-// code. Only Danger Zone (ties to the real Session.DisableAll via
-// onDetachAll), Build info (real runtime.Version()/GOOS/GOARCH), and the
-// table source panel (real file content) are live. Showing the rest
-// disabled and labeled "coming soon" is the honest version of this screen
-// rather than pretending they do something.
-export function SettingsView(props: {attached: boolean; onDetachAll: () => void; current: TableSummary | null}) {
+// Most behaviour toggles below are real UI matching the mockup, but
+// *inert*: there's no persisted settings file, no auto-attach polling
+// loop, no overlay window, and no update-fetching code. "Show game
+// artwork" is the exception - a display preference, not app config, so
+// it's backed by localStorage instead of waiting on that infrastructure.
+// Danger Zone (real Session.DisableAll via onDetachAll), Build info (real
+// runtime.Version()/GOOS/GOARCH), and the table source panel (real file
+// content) are also live. Showing the rest disabled and labeled "coming
+// soon" is the honest version of this screen rather than pretending they
+// do something.
+export function SettingsView(props: {
+  attached: boolean;
+  onDetachAll: () => void;
+  current: TableSummary | null;
+  showArtwork: boolean;
+  onToggleArtwork: (checked: boolean) => void;
+}) {
   const [build, setBuild] = useState<BuildInfo | null>(null);
   const [confirmText, setConfirmText] = useState('');
   const [source, setSource] = useState('');
@@ -46,6 +54,12 @@ export function SettingsView(props: {attached: boolean; onDetachAll: () => void;
           <ToggleRow label="Keep an overlay on top of the game" hint="Needs an always-on-top transparent window; not reliably possible on Wayland compositors." />
           <ToggleRow label="Check for table updates on launch" hint="No update server exists yet." />
           <ToggleRow label="Back up the save folder before a cheat marked BREAKS SAVES" />
+          <ToggleRow
+            label="Show game artwork"
+            hint="Cover, logo, and background art on the game page - from Steam if a table declares a steamAppId, or its own logoUrl/heroUrl otherwise."
+            checked={props.showArtwork}
+            onChange={props.onToggleArtwork}
+          />
 
           <div class="section-label">GAME FOLDERS</div>
           <div class="kv-list">

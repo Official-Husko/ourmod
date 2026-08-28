@@ -11,6 +11,7 @@ export interface TableSummary {
   compatibleVersions: string[] | null;
   gameSource: string;
   steamAppId: string;
+  headerUrl: string;
   logoUrl: string;
   heroUrl: string;
   sourceUrl: string;

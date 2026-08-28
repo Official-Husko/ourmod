@@ -43,6 +43,7 @@ type TableSummary struct {
 	CompatibleVersions []string `json:"compatibleVersions"`
 	GameSource         string   `json:"gameSource"`
 	SteamAppID         string   `json:"steamAppId"`
+	HeaderURL          string   `json:"headerUrl"`
 	LogoURL            string   `json:"logoUrl"`
 	HeroURL            string   `json:"heroUrl"`
 	SourceURL          string   `json:"sourceUrl"`
@@ -210,6 +211,7 @@ func summarizeTable(path string) TableSummary {
 		summary.CompatibleVersions = t.Metadata.CompatibleVersions
 		summary.GameSource = t.Metadata.GameSource
 		summary.SteamAppID = t.Metadata.SteamAppID
+		summary.HeaderURL = t.Metadata.HeaderURL
 		summary.LogoURL = t.Metadata.LogoURL
 		summary.HeroURL = t.Metadata.HeroURL
 		summary.SourceURL = t.Metadata.SourceURL
