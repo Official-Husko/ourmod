@@ -12,6 +12,7 @@ import {
 } from '../wailsjs/go/desktop/App';
 import {EventsOn} from '../wailsjs/runtime/runtime';
 import {NavRail} from './components/NavRail';
+import {Toast} from './components/Toast';
 import {LibraryView} from './views/LibraryView';
 import {GameView} from './views/GameView';
 import {HotkeysView} from './views/HotkeysView';
@@ -209,7 +210,7 @@ export function App() {
         {view === 'about' && <AboutView/>}
       </div>
 
-      <div class={`toast${error ? '' : ' hidden'}`}>{error}</div>
+      <Toast message={error}/>
     </div>
   );
 }

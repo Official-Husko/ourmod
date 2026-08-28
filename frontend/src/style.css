@@ -1081,15 +1081,31 @@ footer {
   position: fixed;
   bottom: 20px;
   left: 50%;
-  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
   background: rgba(20, 12, 12, 0.95);
   border: 1px solid var(--err);
   color: var(--err);
   padding: 10px 16px;
   font-size: 11px;
+  font-family: var(--mono);
   max-width: 70%;
   z-index: 200;
   box-shadow: 0 0 20px rgba(255, 155, 155, 0.15);
+  /* Fits in/out like a CLI panel snapping into place, rather than a
+     display:none instant cut. */
+  opacity: 0;
+  transform: translateX(-50%) translateY(10px) scaleY(0.85);
+  transform-origin: bottom center;
+  transition: opacity 180ms ease, transform 180ms ease;
+  pointer-events: none;
 }
 
-.toast.hidden { display: none; }
+.toast-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scaleY(1);
+  pointer-events: auto;
+}
+
+.toast-prompt { flex: none; color: var(--err); }
