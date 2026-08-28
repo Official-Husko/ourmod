@@ -41,6 +41,11 @@ type TableSummary struct {
 	FeatureCount       int      `json:"featureCount"`
 	Author             string   `json:"author"`
 	CompatibleVersions []string `json:"compatibleVersions"`
+	GameSource         string   `json:"gameSource"`
+	SteamAppID         string   `json:"steamAppId"`
+	LogoURL            string   `json:"logoUrl"`
+	HeroURL            string   `json:"heroUrl"`
+	SourceURL          string   `json:"sourceUrl"`
 }
 
 // FeatureView is the JSON-friendly projection of a cheats.Feature the
@@ -203,6 +208,11 @@ func summarizeTable(path string) TableSummary {
 			summary.Author = strings.Join(t.Metadata.Authors, ", ")
 		}
 		summary.CompatibleVersions = t.Metadata.CompatibleVersions
+		summary.GameSource = t.Metadata.GameSource
+		summary.SteamAppID = t.Metadata.SteamAppID
+		summary.LogoURL = t.Metadata.LogoURL
+		summary.HeroURL = t.Metadata.HeroURL
+		summary.SourceURL = t.Metadata.SourceURL
 	}
 
 	if data, err := os.ReadFile(path); err == nil {
@@ -464,10 +474,14 @@ func (a *App) DetachAll() error {
 	return err
 }
 
-// EnableFeature resolves and enables a feature by name.
+// EnableFeature resolves and enables a feature by name. If nothing is
+// attached, it falls back to editing this table's Save-mods list directly
+// (see setSavedModFeature) instead of failing outright - that only works
+// if Save mods is actually on for this table, since there's no saved list
+// to edit otherwise.
 func (a *App) EnableFeature(name string) error {
 	if a.att == nil {
-		return fmt.Errorf("not attached")
+		return a.setSavedModFeature(name, true)
 	}
 
 	f, err := a.table.Find(name)
@@ -493,10 +507,12 @@ func (a *App) EnableFeature(name string) error {
 	return nil
 }
 
-// DisableFeature restores a single active feature by name.
+// DisableFeature restores a single active feature by name. If nothing is
+// attached, it falls back to editing this table's Save-mods list directly,
+// same as EnableFeature.
 func (a *App) DisableFeature(name string) error {
 	if a.att == nil {
-		return fmt.Errorf("not attached")
+		return a.setSavedModFeature(name, false)
 	}
 	if err := a.att.session.Disable(name); err != nil {
 		return err
@@ -506,18 +522,70 @@ func (a *App) DisableFeature(name string) error {
 	return nil
 }
 
+// setSavedModFeature adds or removes name from the current table's
+// Save-mods list without touching any live session - this is what lets the
+// CHEATS tab be edited before ever attaching. It only makes sense while
+// Save mods is actually on for this table (there's no saved list to edit
+// otherwise, so this errors rather than silently doing nothing - a
+// disabled checkbox in the UI should mean this is never reached).
+func (a *App) setSavedModFeature(name string, enabled bool) error {
+	if a.tablePath == "" {
+		return fmt.Errorf("no table loaded")
+	}
+
+	feat, err := a.table.Find(name)
+	if err != nil {
+		return err
+	}
+
+	f := loadSavedModsFile()
+	features, on := f.Tables[a.tablePath]
+	if !on {
+		return fmt.Errorf("not attached, and Save mods is off for %q", a.table.Metadata.Name)
+	}
+
+	idx := -1
+	for i, n := range features {
+		if strings.EqualFold(n, feat.Name) {
+			idx = i
+			break
+		}
+	}
+
+	switch {
+	case enabled && idx == -1:
+		features = append(features, feat.Name)
+	case !enabled && idx != -1:
+		features = append(features[:idx], features[idx+1:]...)
+	}
+
+	f.Tables[a.tablePath] = features
+	saveSavedModsFile(f)
+	return nil
+}
+
 // Features returns the current table's features, annotated with whether
-// each is available on the attached platform and currently active.
+// each is available on the attached platform and currently active. While
+// attached, Active reflects the real session. While not attached, Active
+// instead reflects the Save-mods list (if it's on for this table) - what
+// WILL be turned on the moment you attach - so the CHEATS tab is
+// meaningfully editable (via EnableFeature/DisableFeature's not-attached
+// fallback) before ever attaching, not just a read-only preview.
 func (a *App) Features() []FeatureView {
 	if a.table == nil {
 		return nil
 	}
 
-	var active map[string]bool
+	active := make(map[string]bool)
 	if a.att != nil {
-		active = make(map[string]bool)
 		for _, n := range a.att.session.ActiveFeatures() {
 			active[strings.ToLower(n)] = true
+		}
+	} else if a.tablePath != "" {
+		if saved, on := loadSavedModsFile().Tables[a.tablePath]; on {
+			for _, n := range saved {
+				active[strings.ToLower(n)] = true
+			}
 		}
 	}
 

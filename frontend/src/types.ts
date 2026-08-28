@@ -9,6 +9,11 @@ export interface TableSummary {
   featureCount: number;
   author: string;
   compatibleVersions: string[] | null;
+  gameSource: string;
+  steamAppId: string;
+  logoUrl: string;
+  heroUrl: string;
+  sourceUrl: string;
 }
 
 // Matches the generated wailsjs FeatureView.control.kind, which comes

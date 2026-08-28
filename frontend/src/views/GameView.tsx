@@ -24,6 +24,7 @@ export function GameView(props: {
   onToggleFavourite: () => void;
   favouriteCheats: Set<string>;
   onToggleFavouriteCheat: (key: string) => void;
+  onFeaturesRefresh: () => void;
   onBack: () => void;
   onAttach: () => void;
   onDetachAll: () => void;
@@ -105,13 +106,14 @@ function GamePanel(props: {
   onToggleFavourite: () => void;
   favouriteCheats: Set<string>;
   onToggleFavouriteCheat: (key: string) => void;
+  onFeaturesRefresh: () => void;
   onAttach: () => void;
   onDetachAll: () => void;
   onToggle: (name: string, checked: boolean) => void;
 }) {
   const {
     table, features, attachInfo, favourite, onToggleFavourite,
-    favouriteCheats, onToggleFavouriteCheat, onAttach, onDetachAll, onToggle,
+    favouriteCheats, onToggleFavouriteCheat, onFeaturesRefresh, onAttach, onDetachAll, onToggle,
   } = props;
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'active' | 'risky'>('all');
@@ -129,6 +131,10 @@ function GamePanel(props: {
     setSaveModsOn(checked);
     try {
       await SetSaveModsEnabled(checked);
+      // Toggling this can flip several checkboxes' Active state at once
+      // while not attached (the whole saved list appears/disappears), so
+      // refetch rather than trying to patch local state piecemeal.
+      if (!attachInfo) onFeaturesRefresh();
     } catch {
       setSaveModsOn(!checked);
     }
@@ -277,6 +283,7 @@ function GamePanel(props: {
                           key={f.name}
                           feature={f}
                           attached={!!attachInfo}
+                          saveModsEditable={saveModsOn}
                           favourite
                           onToggleFavourite={() => onToggleFavouriteCheat(favouriteKey(table.path, f.name))}
                           onToggle={onToggle}
@@ -301,6 +308,7 @@ function GamePanel(props: {
                             key={f.name}
                             feature={f}
                             attached={!!attachInfo}
+                            saveModsEditable={saveModsOn}
                             favourite={false}
                             onToggleFavourite={() => onToggleFavouriteCheat(favouriteKey(table.path, f.name))}
                             onToggle={onToggle}
@@ -368,20 +376,28 @@ function ScriptTab(props: {table: TableSummary}) {
 function FeatureRow(props: {
   feature: FeatureView;
   attached: boolean;
+  // Whether Save mods is on for this table - while not attached, that's
+  // what makes the checkbox interactive at all (editing the saved list
+  // directly, via EnableFeature/DisableFeature's not-attached fallback)
+  // instead of just a disabled preview.
+  saveModsEditable: boolean;
   favourite: boolean;
   onToggleFavourite: () => void;
   onToggle: (name: string, checked: boolean) => void;
 }) {
-  const {feature: f, attached, favourite, onToggleFavourite, onToggle} = props;
+  const {feature: f, attached, saveModsEditable, favourite, onToggleFavourite, onToggle} = props;
   const broken = f.stability === 'broken';
-  const disabled = !attached || !f.available || broken;
-  const kind = f.control?.kind ?? 'toggle';
-
   // f.available only means something once attached (it's "does this
   // feature have a target for the platform we're attached to"); before
-  // that it's always false, since there's no attached platform yet. Don't
-  // dim every row over that while just browsing pre-attach - only the
-  // toggle itself needs to stay disabled, via `disabled` above.
+  // that it's always false, since there's no attached platform yet, so it
+  // plays no part in the not-attached branch below.
+  const disabled = broken || (attached ? !f.available : !saveModsEditable);
+  const kind = f.control?.kind ?? 'toggle';
+
+  // Don't dim the whole row just because f.available is meaningless
+  // pre-attach, or because Save mods happens to be off (that's a normal,
+  // common state, not something wrong) - only a genuinely broken feature
+  // gets the dimmed treatment outside of the attached case.
   const dimmed = attached ? disabled : broken;
 
   const rowClass = [
@@ -402,6 +418,7 @@ function FeatureRow(props: {
           type="checkbox"
           checked={f.active}
           disabled={disabled}
+          title={!attached && !saveModsEditable && !broken ? 'Turn on Save mods to edit this before attaching' : undefined}
           onChange={(e) => onToggle(f.name, (e.target as HTMLInputElement).checked)}
         />
       )}

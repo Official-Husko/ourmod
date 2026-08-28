@@ -146,6 +146,14 @@ export function App() {
     }
   };
 
+  // Turning Save mods on/off pre-attach can flip several checkboxes' Active
+  // state at once (the whole saved list appears or disappears) - too much
+  // for the single-item optimistic update onToggle does, so this just
+  // refetches the real list instead.
+  const refreshFeatures = useCallback(async () => {
+    setFeatures((await Features()) ?? []);
+  }, []);
+
   const onToggle = async (name: string, checked: boolean) => {
     setFeatures((prev) => prev.map((f) => (f.name === name ? {...f, active: checked} : f)));
     try {
@@ -188,6 +196,7 @@ export function App() {
             onToggleFavourite={() => toggleFavourite(current.path)}
             favouriteCheats={favouriteCheats}
             onToggleFavouriteCheat={toggleFavouriteCheat}
+            onFeaturesRefresh={refreshFeatures}
             onBack={() => setView('library')}
             onAttach={onAttach}
             onDetachAll={onDetachAll}

@@ -1,0 +1,167 @@
+# example.yml - a reference/template cheat table.
+#
+# Copy this file, rename it, and replace every placeholder value (marked
+# "EXAMPLE ONLY" below) with real data from your own reverse-engineering.
+# Every byte value in this file is fabricated - "90 90"-style filler, not
+# anything captured from a real process - so this table will load and
+# validate, but every feature in it will simply fail to find its signature
+# if you ever attach it to a real game. That's expected: it exists to show
+# the *shape* of the format, not to work out of the box.
+#
+# See pkg/cheats/types.go for the authoritative field-by-field docs; this
+# file mirrors that structure with commentary aimed at a table author
+# instead of the engine code that consumes it.
+
+metadata:
+  # id is optional - left unset here on purpose. OurMod derives one
+  # automatically (a UUIDv5 hashed from `name` below), so you only need to
+  # set it explicitly if you want it pinned across a future rename.
+  # Game title, exactly as you want it shown in the library.
+  name: Example Game
+  # This table's own version - bump it whenever you change the table.
+  version: 0.1.0
+  # Single author, OR use `authors: [name1, name2]` for more than one -
+  # not both.
+  author: your-name-here
+  description: Template cheat table - not a real game, not real cheats.
+
+  # GameSource is a free-text badge ("steam", "gog", "epic", "manual", ...)
+  # - purely informational, shown in the UI. Omit it if you don't know or
+  # it doesn't apply.
+  gameSource: steam
+
+  # SteamAppID (EXAMPLE ONLY - "0" below is a placeholder, not a real app
+  # ID): when set, it's enough on its own to derive real Steam cover/hero
+  # art client-side. Find a game's real app ID in its Steam store URL,
+  # e.g. store.steampowered.com/app/<this number>/.
+  steamAppId: 0
+
+  # LogoURL / HeroURL: direct image URLs, only needed if the game isn't on
+  # Steam (no SteamAppID to derive art from) or you want to override the
+  # derived art. Uncomment and fill in if you need them:
+  logoUrl: https://example.com/path/to/logo.png
+  heroUrl: https://cdn2.steamgriddb.com/grid/334b2a62e44b388e868c4f709176df17.png
+
+  # SourceURL (EXAMPLE ONLY): where this exact file can be checked for
+  # updates - typically a raw GitHub URL to this table in your repo. Not
+  # wired to an update-checker yet (none exists), but a table needs
+  # somewhere to declare this before that feature can be built at all.
+  sourceUrl: https://raw.githubusercontent.com/your-name/your-repo/main/tables/example.yml
+
+  # One entry per binary/module format the game ships - keyed on PE vs ELF,
+  # not host OS (see the Platform doc comment in pkg/cheats/types.go for
+  # why there's no separate "wine" key).
+  platforms:
+    windows:
+      executable: ExampleGame.exe
+
+  # Game versions/builds you've actually confirmed this table's offsets
+  # work against.
+  compatibleVersions:
+    - 1.0.0
+
+features:
+
+  # stability is one of:
+  #   working       - you (or someone) actually tried it, and it works.
+  #   untested       - nobody has tried it against a real, running game yet.
+  #                    Always start here - this is the only honest default
+  #                    for data you haven't verified yourself.
+  #   breaks-saves   - works, but corrupts/desyncs the save file. Player
+  #                    sees a "risky" warning before using it.
+  #   broken         - someone tried it and it did NOT work. Distinct from
+  #                    "untested" (never tried) - this is a known failure,
+  #                    not an unknown.
+  # Every feature below is "untested" because every byte in this file is
+  # fabricated filler (see the file header) - none of it has actually been
+  # tried against a real process, so nothing here could honestly claim
+  # "working" or "broken" (both imply a real attempt was made).
+
+  # --- control: toggle (the default - omit `control:` entirely for this) ---
+  - name: Example God Mode
+    hotkey: F1
+    category: Player
+    stability: untested
+    note: "Player-facing description: what this cheat does, in plain language."
+    targets:
+      windows:
+        type: hook
+        signature:
+          # EXAMPLE ONLY. Space-separated hex bytes, "??" as a wildcard
+          # byte, found via a disassembler/debugger against the real game.
+          pattern: "90 90 ?? ?? 90 90 90 90 ?? ?? ?? 90 90 90"
+          offset: 0
+        hook:
+          type: abs64
+          # Must equal the byte-length of `original` below.
+          overwrite: 14
+          # Must exactly match what's actually at the resolved address -
+          # the engine verifies this before writing anything, and refuses
+          # if it doesn't match.
+          original: "90 90 90 90 90 90 90 90 90 90 90 90 90 90"
+          # Your replacement logic, WITHOUT a trailing jump back - the
+          # engine appends that automatically.
+          body: "90 90 90 90 90 90 90 90 90 90 90 90 90 90"
+
+  # --- control: value (a number field + an Activate trigger) ---
+  - name: Example Set Currency
+    hotkey: F2
+    category: Resources
+    stability: untested
+    note: "Type a number, then Activate to set it once."
+    control:
+      kind: value
+    targets:
+      windows:
+        type: patch
+        signature:
+          pattern: "AA BB ?? ?? CC DD"
+          offset: 0
+        patch:
+          original: "AA BB"
+          enabled: "CC DD"
+
+  # --- control: slider (a continuously adjustable number) ---
+  - name: Example Movement Speed
+    hotkey: F3
+    category: Player
+    stability: untested
+    note: "Drag to adjust your movement speed multiplier."
+    control:
+      kind: slider
+      min: 1
+      max: 100
+      step: 1
+      default: 25
+      unit: "%"
+    targets:
+      windows:
+        type: hook
+        signature:
+          pattern: "EE FF ?? ?? 90 90 90 90 ?? ?? 90 90 90 90"
+          offset: 0
+        hook:
+          type: abs64
+          overwrite: 14
+          original: "EE FF 90 90 90 90 90 90 90 90 90 90 90 90"
+          body: "90 90 90 90 90 90 90 90 90 90 90 90 90 90"
+
+  # --- control: action (one or more named one-shot buttons) ---
+  - name: Example Teleport
+    category: World
+    stability: untested
+    note: "Save your current spot, then load it to teleport back there."
+    control:
+      kind: action
+      actions: ["Save", "Load"]
+    targets:
+      windows:
+        type: hook
+        signature:
+          pattern: "11 22 ?? ?? 33 44 90 90 ?? ?? 90 90 90 90"
+          offset: 0
+        hook:
+          type: abs64
+          overwrite: 14
+          original: "11 22 90 90 33 44 90 90 90 90 90 90 90 90"
+          body: "90 90 90 90 90 90 90 90 90 90 90 90 90 90"

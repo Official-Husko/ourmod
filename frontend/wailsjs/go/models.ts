@@ -94,6 +94,11 @@ export namespace desktop {
 	    featureCount: number;
 	    author: string;
 	    compatibleVersions: string[];
+	    gameSource: string;
+	    steamAppId: string;
+	    logoUrl: string;
+	    heroUrl: string;
+	    sourceUrl: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new TableSummary(source);
@@ -108,6 +113,11 @@ export namespace desktop {
 	        this.featureCount = source["featureCount"];
 	        this.author = source["author"];
 	        this.compatibleVersions = source["compatibleVersions"];
+	        this.gameSource = source["gameSource"];
+	        this.steamAppId = source["steamAppId"];
+	        this.logoUrl = source["logoUrl"];
+	        this.heroUrl = source["heroUrl"];
+	        this.sourceUrl = source["sourceUrl"];
 	    }
 	}
 	export class AppStatus {

@@ -91,7 +91,11 @@ type CheatTable struct {
 
 // Metadata describes the game and cheat table itself.
 type Metadata struct {
-	ID                 string                      `yaml:"id"`
+	// ID is optional in the YAML: LoadFile fills it in with a UUIDv5
+	// derived from Name (see deriveTableID) whenever it's left unset, so a
+	// table author never has to hand-generate one. Set it explicitly only
+	// to pin a stable id across a future rename of Name.
+	ID                 string                      `yaml:"id,omitempty"`
 	Name               string                      `yaml:"name"`
 	Version            string                      `yaml:"version"`
 	Author             string                      `yaml:"author,omitempty"`
@@ -99,6 +103,31 @@ type Metadata struct {
 	Description        string                      `yaml:"description,omitempty"`
 	Platforms          map[Platform]PlatformBinary `yaml:"platforms"`
 	CompatibleVersions []string                    `yaml:"compatibleVersions,omitempty"`
+
+	// GameSource is purely informational - which storefront/launcher this
+	// game is from ("steam", "gog", "epic", "manual", ...), shown as a
+	// badge. It's free text, not a closed enum: a new storefront needs no
+	// schema change, just a UI fallback for whatever it doesn't recognise.
+	GameSource string `yaml:"gameSource,omitempty"`
+
+	// SteamAppID, when set, is enough on its own to derive real Steam CDN
+	// cover/hero art client-side (predictable URL shape keyed on app ID) -
+	// no other field is required alongside it.
+	SteamAppID string `yaml:"steamAppId,omitempty"`
+
+	// LogoURL/HeroURL are direct image URLs, used when there's no
+	// SteamAppID to derive art from (a non-Steam game) or to override what
+	// it would derive.
+	LogoURL string `yaml:"logoUrl,omitempty"`
+	HeroURL string `yaml:"heroUrl,omitempty"`
+
+	// SourceURL is where a hand-authored/custom table can be checked for
+	// updates - e.g. a raw GitHub URL to this same file. Not wired to
+	// anything yet (see SettingsView's "Check for table updates" toggle,
+	// still honestly marked "coming soon" - no update-fetching code exists
+	// yet either), but a table needs somewhere to declare this before that
+	// feature can be built at all.
+	SourceURL string `yaml:"sourceUrl,omitempty"`
 }
 
 // PlatformBinary names the on-disk executable for one binary/module format.

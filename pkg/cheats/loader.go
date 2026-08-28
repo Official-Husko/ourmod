@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/google/uuid"
 	"gopkg.in/yaml.v3"
 )
 
@@ -16,6 +17,22 @@ var (
 )
 
 const minAbs64Overwrite = 14
+
+// namespaceTableID is a fixed, arbitrary namespace UUID used to derive a
+// table's id from its game name when metadata.id is left unset (see
+// deriveTableID). Fixed so the same name always derives the same id, on
+// any machine, forever - that's the entire point of a namespaced UUID
+// (RFC 4122 §4.3): not a secret, just a constant.
+var namespaceTableID = uuid.MustParse("13a1a7f1-5706-4666-b648-21229ce763ef")
+
+// deriveTableID computes a deterministic UUIDv5 from a game name, used to
+// fill in metadata.id when a table author leaves it unset - one less
+// field to hand-generate, and it's automatically stable across edits to
+// everything else in the file (renaming the game itself would still
+// change it, same as manually regenerating one would).
+func deriveTableID(gameName string) string {
+	return uuid.NewSHA1(namespaceTableID, []byte(gameName)).String()
+}
 
 // LoadFile reads and validates a cheat table YAML file.
 func LoadFile(path string) (*CheatTable, error) {
@@ -27,6 +44,10 @@ func LoadFile(path string) (*CheatTable, error) {
 	var t CheatTable
 	if err := yaml.Unmarshal(data, &t); err != nil {
 		return nil, fmt.Errorf("cheats: parse %s: %w", path, err)
+	}
+
+	if t.Metadata.ID == "" && t.Metadata.Name != "" {
+		t.Metadata.ID = deriveTableID(t.Metadata.Name)
 	}
 
 	if err := t.Validate(); err != nil {
