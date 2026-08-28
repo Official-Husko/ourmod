@@ -1,6 +1,6 @@
 import {useEffect, useState} from 'preact/hooks';
 import {AttachInfo, ControlView, FeatureView, TableSummary} from '../types';
-import {GetSavedMods, SetSaveModsEnabled, TableSource} from '../../wailsjs/go/desktop/App';
+import {GetSavedMods, SetFeatureValue, SetSaveModsEnabled, TableSource} from '../../wailsjs/go/desktop/App';
 import {formatChecksum} from '../format';
 import {CommandLine} from '../components/CommandLine';
 import {SignalBox} from '../components/SignalBox';
@@ -138,6 +138,14 @@ function GamePanel(props: {
     } catch {
       setSaveModsOn(!checked);
     }
+  };
+
+  // Fires on every drag tick while a slider moves - a plain memory write,
+  // no ptrace/reinstall involved, so no debouncing here. Errors are
+  // swallowed rather than toasted: a mid-drag failure (e.g. the feature
+  // got disabled from another tab) would otherwise spam a toast per tick.
+  const onSetFeatureValue = (name: string, value: number) => {
+    SetFeatureValue(name, value).catch(() => {});
   };
 
   // Once attaching succeeds, move off the ATTACH tab so the result is
@@ -287,6 +295,7 @@ function GamePanel(props: {
                           favourite
                           onToggleFavourite={() => onToggleFavouriteCheat(favouriteKey(table.path, f.name))}
                           onToggle={onToggle}
+                          onSetValue={onSetFeatureValue}
                         />
                       ))}
                     </div>
@@ -312,6 +321,7 @@ function GamePanel(props: {
                             favourite={false}
                             onToggleFavourite={() => onToggleFavouriteCheat(favouriteKey(table.path, f.name))}
                             onToggle={onToggle}
+                            onSetValue={onSetFeatureValue}
                           />
                         ))}
                       </div>
@@ -384,8 +394,9 @@ function FeatureRow(props: {
   favourite: boolean;
   onToggleFavourite: () => void;
   onToggle: (name: string, checked: boolean) => void;
+  onSetValue: (name: string, value: number) => void;
 }) {
-  const {feature: f, attached, saveModsEditable, favourite, onToggleFavourite, onToggle} = props;
+  const {feature: f, attached, saveModsEditable, favourite, onToggleFavourite, onToggle, onSetValue} = props;
   const broken = f.stability === 'broken';
   // f.available only means something once attached (it's "does this
   // feature have a target for the platform we're attached to"); before
@@ -433,12 +444,12 @@ function FeatureRow(props: {
           {favourite ? '★' : '☆'}
         </span>
       </div>
-      <FeatureControl control={f.control}/>
+      <FeatureControl control={f.control} active={f.active} onSetValue={(v) => onSetValue(f.name, v)}/>
       <span class={`hotkey${f.hotkey ? '' : ' unbound'}`}>{f.hotkey || 'unbound'}</span>
-      {(f.note || kind !== 'toggle') && (
+      {(f.note || kind === 'value' || kind === 'action') && (
         <div class="note">
           {f.note}
-          {kind !== 'toggle' && <span class="coming-soon"> &middot; not implemented yet</span>}
+          {(kind === 'value' || kind === 'action') && <span class="coming-soon"> &middot; not implemented yet</span>}
         </div>
       )}
     </div>
@@ -446,23 +457,46 @@ function FeatureRow(props: {
 }
 
 // FeatureControl renders the non-toggle interaction a feature's control
-// calls for. None of these write anything real yet - the engine only knows
-// how to apply fixed patch/hook bytes, not a player-typed value or a saved
-// position - so every control here is inert (disabled) until real
-// signature data backs it. The shape is real so the UI matches the
-// intended design; only the wiring is deferred.
-function FeatureControl(props: {control: ControlView}) {
-  const {control} = props;
+// calls for. "slider" is real - live, once the feature is active, it
+// writes straight into the hook's cave-local value (see cheats.HookData)
+// with no reinstall. "value"/"action" aren't backed by anything yet - the
+// engine has no mechanism for a one-shot typed value or a saved
+// position - so those stay inert (disabled) until real signature data
+// backs them; the shape is real so the UI matches the intended design.
+function FeatureControl(props: {control: ControlView; active: boolean; onSetValue: (value: number) => void}) {
+  const {control, active, onSetValue} = props;
 
   switch (control.kind) {
     case 'slider': {
       const min = control.min ?? 0;
       const max = control.max ?? 100;
       const step = control.step ?? 1;
-      const value = control.default ?? min;
+      const [value, setValue] = useState(control.default ?? min);
+
+      // A fresh Enable always re-initializes the cave value from
+      // control.default (see Session.Enable) - reset to match once the
+      // feature goes active again, so the slider doesn't show a stale
+      // position left over from a previous session.
+      useEffect(() => {
+        if (active) setValue(control.default ?? min);
+      }, [active]);
+
       return (
-        <div class="control control-slider" title="Not implemented yet">
-          <input type="range" min={min} max={max} step={step} value={value} disabled/>
+        <div class="control control-slider">
+          <input
+            type="range"
+            min={min}
+            max={max}
+            step={step}
+            value={value}
+            disabled={!active}
+            title={active ? undefined : 'Enable this cheat to adjust it'}
+            onInput={(e) => {
+              const v = Number((e.target as HTMLInputElement).value);
+              setValue(v);
+              onSetValue(v);
+            }}
+          />
           <span class="control-readout">{value}{control.unit ?? ''}</span>
         </div>
       );

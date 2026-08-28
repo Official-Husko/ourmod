@@ -188,4 +188,41 @@ type Hook struct {
 	Overwrite int    `yaml:"overwrite"`
 	Original  string `yaml:"original"`
 	Body      string `yaml:"body"`
+
+	// Data declares a mutable value living inside this hook's own code
+	// cave - e.g. a FLiNG/Async-style hook body that lazily initializes a
+	// cave-local speed multiplier the first time it runs, read back via a
+	// RIP-relative reference within Body. Optional: most hooks have none.
+	Data *HookData `yaml:"data,omitempty"`
+}
+
+// HookDataType is the on-the-wire encoding of a Hook.Data value.
+type HookDataType string
+
+const (
+	HookDataFloat32 HookDataType = "float32"
+	HookDataUint32  HookDataType = "uint32"
+)
+
+// HookDataSource is where a Hook.Data value's live content comes from.
+// "control" is the only one implemented: the feature's own Control value
+// (a slider's current position, or a value control's typed number).
+type HookDataSource string
+
+const (
+	HookDataSourceControl HookDataSource = "control"
+)
+
+// HookData is one mutable value inside a hook's cave. Offset is relative
+// to the cave's own base address (byte 0, same as Body) - not to Body's
+// end or to Overwrite - matching how a disassembler reports a RIP-relative
+// reference back into the cave. The engine writes this value once when the
+// feature is enabled (using the feature's Control.Default) and again
+// whenever the control's live value changes while the feature stays
+// active - it never reinstalls the hook to do so, since the value's
+// address is fixed for the lifetime of the cave.
+type HookData struct {
+	Offset uint32         `yaml:"offset"`
+	Type   HookDataType   `yaml:"type"`
+	Source HookDataSource `yaml:"source"`
 }

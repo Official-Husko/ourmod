@@ -25,7 +25,10 @@ type activeFeature struct {
 	feature *cheats.Feature
 	site    uintptr
 	cave    uintptr // 0 for patch-type features - only a hook allocates one
-	undo    func() error
+	// hookData is target.Hook.Data if the active hook has a live-adjustable
+	// cave value (e.g. a slider), nil otherwise - checked by SetDataValue.
+	hookData *cheats.HookData
+	undo     func() error
 }
 
 // SessionEntry is one active feature's installed location, exported via
@@ -60,10 +63,16 @@ func (s *Session) Enable(feature *cheats.Feature, target cheats.Target, site uin
 	var undo func() error
 	var cave uintptr
 	var err error
+	var hookData *cheats.HookData
 
 	switch target.Type {
 	case cheats.FeatureTypeHook:
-		undo, cave, err = EnableHook(s.pid, s.maps, site, target.Hook)
+		hookData = target.Hook.Data
+		dataValue := 0.0
+		if hookData != nil && feature.Control.Default != nil {
+			dataValue = *feature.Control.Default
+		}
+		undo, cave, err = EnableHook(s.pid, s.maps, site, target.Hook, dataValue)
 	case cheats.FeatureTypePatch:
 		undo, err = EnablePatch(s.pid, s.maps, site, target.Patch)
 	default:
@@ -73,7 +82,7 @@ func (s *Session) Enable(feature *cheats.Feature, target cheats.Target, site uin
 		return fmt.Errorf("engine: enable %q: %w", feature.Name, err)
 	}
 
-	s.active[key] = &activeFeature{feature: feature, site: site, cave: cave, undo: undo}
+	s.active[key] = &activeFeature{feature: feature, site: site, cave: cave, hookData: hookData, undo: undo}
 	return nil
 }
 
@@ -96,9 +105,11 @@ func (s *Session) Recover(feature *cheats.Feature, target cheats.Target, site, c
 	var undo func() error
 	var confirmed bool
 	var err error
+	var hookData *cheats.HookData
 
 	switch target.Type {
 	case cheats.FeatureTypeHook:
+		hookData = target.Hook.Data
 		undo, confirmed, err = RecoverHook(s.pid, s.maps, site, target.Hook, cave)
 	case cheats.FeatureTypePatch:
 		undo, confirmed, err = RecoverPatch(s.pid, s.maps, site, target.Patch)
@@ -109,7 +120,7 @@ func (s *Session) Recover(feature *cheats.Feature, target cheats.Target, site, c
 		return false, err
 	}
 
-	s.active[key] = &activeFeature{feature: feature, site: site, cave: cave, undo: undo}
+	s.active[key] = &activeFeature{feature: feature, site: site, cave: cave, hookData: hookData, undo: undo}
 	return true, nil
 }
 
@@ -141,6 +152,30 @@ func (s *Session) Snapshot() map[string]SessionEntry {
 		out[af.feature.Name] = SessionEntry{Site: af.site, Cave: af.cave}
 	}
 	return out
+}
+
+// SetDataValue writes value into an active hook feature's cave-local data
+// (see cheats.HookData), without reinstalling anything - the cave's
+// address and layout are fixed for as long as the feature stays active, so
+// this is just a plain write. Returns an error if the feature isn't
+// active, or is active but has no such value (a toggle, a patch, or a hook
+// with no Data).
+func (s *Session) SetDataValue(name string, value float64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	af, ok := s.active[strings.ToLower(name)]
+	if !ok {
+		return fmt.Errorf("engine: feature %q is not active", name)
+	}
+	if af.hookData == nil {
+		return fmt.Errorf("engine: feature %q has no live-adjustable value", name)
+	}
+
+	if err := WriteHookData(s.pid, af.cave, af.hookData, value); err != nil {
+		return fmt.Errorf("engine: set %q: %w", name, err)
+	}
+	return nil
 }
 
 // Disable restores one active feature and removes it from the active set.

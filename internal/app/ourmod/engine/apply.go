@@ -2,12 +2,41 @@ package engine
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 
 	"github.com/Official-Husko/ourmod/pkg/cheats"
 )
+
+// EncodeHookData encodes value as h.Type's on-the-wire bytes (always 4
+// bytes today - float32 and uint32 are both 4-byte types).
+func EncodeHookData(t cheats.HookDataType, value float64) ([]byte, error) {
+	buf := make([]byte, 4)
+	switch t {
+	case cheats.HookDataFloat32:
+		binary.LittleEndian.PutUint32(buf, math.Float32bits(float32(value)))
+	case cheats.HookDataUint32:
+		binary.LittleEndian.PutUint32(buf, uint32(value))
+	default:
+		return nil, fmt.Errorf("unsupported hook data type %q", t)
+	}
+	return buf, nil
+}
+
+// WriteHookData writes value into an already-installed hook's cave at
+// h.Data's offset - used both to initialize it at Enable time and to
+// update it live while the feature stays active. The cave is always RWX
+// (see EnableHook), so this is a plain write, no protection dance needed.
+func WriteHookData(pid int, cave uintptr, d *cheats.HookData, value float64) error {
+	data, err := EncodeHookData(d.Type, value)
+	if err != nil {
+		return err
+	}
+	return WriteMemory(pid, cave+uintptr(d.Offset), data)
+}
 
 // EnablePatch verifies the original bytes at target, writes p.Enabled over
 // them, and returns a function that restores p.Original.
@@ -74,8 +103,11 @@ func RecoverPatch(pid int, maps []MemoryMap, target uintptr, p *cheats.Patch) (f
 // overwrites target with a jump into that cave, and returns the cave
 // address (so a caller can persist it - it's otherwise unrecoverable, being
 // freshly allocated each call) plus a function that restores the original
-// bytes and frees the cave.
-func EnableHook(pid int, maps []MemoryMap, target uintptr, h *cheats.Hook) (undo func() error, cave uintptr, err error) {
+// bytes and frees the cave. If h.Data is set, dataValue is written into the
+// cave at its offset before the target is patched - see WriteHookData -
+// so the hook never runs with a stale/zero value; dataValue is ignored
+// when h.Data is nil.
+func EnableHook(pid int, maps []MemoryMap, target uintptr, h *cheats.Hook, dataValue float64) (undo func() error, cave uintptr, err error) {
 	if h.Type != "abs64" {
 		return nil, 0, fmt.Errorf("unsupported hook type %q", h.Type)
 	}
@@ -122,7 +154,23 @@ func EnableHook(pid int, maps []MemoryMap, target uintptr, h *cheats.Hook) (undo
 		return nil, 0, fmt.Errorf("write cave: %w", err)
 	}
 
-	if err := protectMemory(pid, cave, 4096, ProtRead|ProtExec); err != nil {
+	if h.Data != nil {
+		if err := WriteHookData(pid, cave, h.Data, dataValue); err != nil {
+			_ = freeMemory(pid, cave, 4096)
+			return nil, 0, fmt.Errorf("write cave data: %w", err)
+		}
+	}
+
+	// RWX, not RX: a hook body commonly self-initializes cave-local data
+	// (a lazy "if [cave+N] == 0, write the default" pattern - this is
+	// exactly what real FLiNG/Async-generated hooks do, e.g. Player
+	// Speed's cave-local float multiplier). That write executes as part
+	// of the hook body itself, inside the *game's* thread, the first time
+	// the hooked function runs - on an RX-only page that instruction
+	// faults, crashing the game. There's no meaningful W^X boundary being
+	// given up here either: the cave's entire contents are already
+	// trainer-controlled injected code, so a stricter split buys nothing.
+	if err := protectMemory(pid, cave, 4096, ProtRead|ProtWrite|ProtExec); err != nil {
 		_ = freeMemory(pid, cave, 4096)
 		return nil, 0, err
 	}

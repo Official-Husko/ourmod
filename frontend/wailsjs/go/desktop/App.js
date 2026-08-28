@@ -46,6 +46,10 @@ export function ReloadTable() {
   return window['go']['desktop']['App']['ReloadTable']();
 }
 
+export function SetFeatureValue(arg1, arg2) {
+  return window['go']['desktop']['App']['SetFeatureValue'](arg1, arg2);
+}
+
 export function SetSaveModsEnabled(arg1) {
   return window['go']['desktop']['App']['SetSaveModsEnabled'](arg1);
 }

@@ -119,7 +119,7 @@ func validateFeature(i int, f Feature) []error {
 		errs = append(errs, fmt.Errorf("features[%d] (%s): at least one platform target is required", i, f.Name))
 	}
 	for plat, tgt := range f.Targets {
-		errs = append(errs, validateTarget(f.Name, plat, tgt)...)
+		errs = append(errs, validateTarget(f.Name, plat, tgt, f.Control)...)
 	}
 
 	return errs
@@ -147,7 +147,7 @@ func validateControl(feature string, c ControlSpec) []error {
 	return errs
 }
 
-func validateTarget(feature string, plat Platform, tgt Target) []error {
+func validateTarget(feature string, plat Platform, tgt Target, control ControlSpec) []error {
 	var errs []error
 
 	if _, err := validatePatternTokens(tgt.Signature.Pattern); err != nil {
@@ -173,7 +173,7 @@ func validateTarget(feature string, plat Platform, tgt Target) []error {
 			errs = append(errs, fmt.Errorf("%s/%s: type is \"hook\" but patch is also set", feature, plat))
 		}
 		if tgt.Hook != nil {
-			errs = append(errs, validateHook(feature, plat, tgt.Hook)...)
+			errs = append(errs, validateHook(feature, plat, tgt.Hook, control)...)
 		}
 	case FeatureTypeFreeze, FeatureTypePointer:
 		errs = append(errs, fmt.Errorf("%s/%s: type %q is reserved but not implemented yet", feature, plat, tgt.Type))
@@ -208,7 +208,7 @@ func validatePatch(feature string, plat Platform, p *Patch) []error {
 	return errs
 }
 
-func validateHook(feature string, plat Platform, h *Hook) []error {
+func validateHook(feature string, plat Platform, h *Hook, control ControlSpec) []error {
 	var errs []error
 
 	if h.Type != "abs64" {
@@ -228,6 +228,23 @@ func validateHook(feature string, plat Platform, h *Hook) []error {
 
 	if _, err := validateByteTokens(h.Body); err != nil {
 		errs = append(errs, fmt.Errorf("%s/%s: hook.body: %w", feature, plat, err))
+	}
+
+	if h.Data != nil {
+		switch h.Data.Type {
+		case HookDataFloat32, HookDataUint32:
+		default:
+			errs = append(errs, fmt.Errorf("%s/%s: hook.data.type: unsupported %q (want \"float32\" or \"uint32\")", feature, plat, h.Data.Type))
+		}
+
+		switch h.Data.Source {
+		case HookDataSourceControl:
+			if control.Kind != ControlValue && control.Kind != ControlSlider {
+				errs = append(errs, fmt.Errorf("%s/%s: hook.data.source is \"control\" but control.kind is %q (want \"value\" or \"slider\")", feature, plat, control.Kind))
+			}
+		default:
+			errs = append(errs, fmt.Errorf("%s/%s: hook.data.source: unsupported %q (only \"control\" is supported)", feature, plat, h.Data.Source))
+		}
 	}
 
 	return errs

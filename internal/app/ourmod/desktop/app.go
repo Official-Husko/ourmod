@@ -522,6 +522,22 @@ func (a *App) DisableFeature(name string) error {
 	return nil
 }
 
+// SetFeatureValue live-updates an already-active feature's cave-local
+// value (see cheats.HookData) - a slider's current position, or a value
+// control's typed number. It never reinstalls the hook: the cave's address
+// is fixed for as long as the feature stays active, so this is a plain
+// write. Requires being attached and the feature already being active -
+// unlike EnableFeature/DisableFeature, there's no not-attached fallback:
+// there's nothing meaningful to "save" for a value that only has an effect
+// while live (the Default in the table is what a fresh Enable starts
+// from).
+func (a *App) SetFeatureValue(name string, value float64) error {
+	if a.att == nil {
+		return fmt.Errorf("not attached")
+	}
+	return a.att.session.SetDataValue(name, value)
+}
+
 // setSavedModFeature adds or removes name from the current table's
 // Save-mods list without touching any live session - this is what lets the
 // CHEATS tab be edited before ever attaching. It only makes sense while

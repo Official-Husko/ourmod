@@ -1,4 +1,7 @@
+import {BrowserOpenURL} from '../../wailsjs/runtime/runtime';
 import {ViewId} from '../types';
+
+const REPO_URL = 'https://github.com/Official-Husko/ourmod';
 
 // session (LIBRARY / MODS / HOTKEYS), system (SETTINGS / ABOUT). "MODS"
 // (id "game") opens the selected game's panel, which now has its own
@@ -23,8 +26,8 @@ export function NavRail(props: {
   return (
     <nav class="rail">
       <div class="rail-brand">
+        <span class="brand-logo" aria-hidden="true"/>
         <span class="brand">OURMOD</span>
-        <span class="rail-version">v0.1.0-dev</span>
       </div>
       <div class="rail-nav">
         <div class="rail-head">session</div>
@@ -59,8 +62,14 @@ export function NavRail(props: {
         </div>
       </div>
       <div class="rail-footer">
-        <span>github.com/Official-Husko/ourmod</span>
-        <span>local only &middot; no account</span>
+        <a
+          class="rail-link"
+          href={REPO_URL}
+          onClick={(e) => { e.preventDefault(); BrowserOpenURL(REPO_URL); }}
+        >
+          github.com/Official-Husko/ourmod
+        </a>
+        <span class="rail-version">v0.1.0-dev</span>
       </div>
     </nav>
   );

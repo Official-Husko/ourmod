@@ -24,6 +24,8 @@ export function LoadTable(arg1:string):Promise<Array<desktop.FeatureView>>;
 
 export function ReloadTable():Promise<desktop.ReloadResult>;
 
+export function SetFeatureValue(arg1:string,arg2:number):Promise<void>;
+
 export function SetSaveModsEnabled(arg1:boolean):Promise<void>;
 
 export function TableSource(arg1:string):Promise<string>;
