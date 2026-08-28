@@ -12,6 +12,10 @@ metadata:
   # Description of the cheat table
   description: Native Linux/Proton trainer for Sniper Elite 5.
 
+  logoUrl: https://cdn2.steamgriddb.com/logo/6d91cba46fdc9578e0c8f195890de004.png
+  heroUrl: https://cdn2.steamgriddb.com/hero/27f3d04fe0ac180f00979ed6c77408bc.png
+  headerUrl: https://cdn2.steamgriddb.com/hero/7d8a4a5ab298bab9ff02abda18040afe.png
+
   # One entry per binary/module format the game ships, keyed on PE vs ELF (not host OS).
   # A Windows PE build behaves identically whether it runs natively or under Wine/Proton —
   # Wine loads the real unmodified PE binary, so "windows" already covers both. Only a
