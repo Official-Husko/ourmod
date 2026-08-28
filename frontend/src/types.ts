@@ -4,6 +4,7 @@
 export interface TableSummary {
   path: string;
   name: string;
+  version: string;
   checksum: string;
   featureCount: number;
   author: string;

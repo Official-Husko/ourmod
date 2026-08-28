@@ -2,6 +2,7 @@ import {useEffect, useState} from 'preact/hooks';
 import {BuildInfo, TableSummary} from '../types';
 import {BuildInfo as FetchBuildInfo, TableSource} from '../../wailsjs/go/desktop/App';
 import {CommandLine} from '../components/CommandLine';
+import {ToggleRow} from '../components/ToggleRow';
 import {YamlBlock} from '../components/YamlBlock';
 
 // Behavior toggles below are real UI matching the mockup, but *inert*: none
@@ -97,19 +98,6 @@ export function SettingsView(props: {attached: boolean; onDetachAll: () => void;
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function ToggleRow(props: {label: string; hint?: string}) {
-  return (
-    <div class="toggle-row">
-      <div class="toggle-fake" aria-disabled="true"/>
-      <div>
-        <div class="toggle-label">{props.label}</div>
-        {props.hint && <div class="toggle-hint">{props.hint}</div>}
-      </div>
-      <span class="coming-soon">coming soon</span>
     </div>
   );
 }

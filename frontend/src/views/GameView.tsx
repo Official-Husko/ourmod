@@ -3,7 +3,16 @@ import {AttachInfo, ControlView, FeatureView, TableSummary} from '../types';
 import {TableSource} from '../../wailsjs/go/desktop/App';
 import {CommandLine} from '../components/CommandLine';
 import {OverlayPreview} from '../components/OverlayPreview';
+import {ToggleRow} from '../components/ToggleRow';
 import {YamlBlock} from '../components/YamlBlock';
+import {useTypewriter} from '../hooks/useTypewriter';
+
+// The key a cheat's session-only favourite state is tracked under - scoped
+// to the table it belongs to, since the same feature name could in theory
+// exist in two different tables.
+function favouriteKey(tablePath: string, featureName: string): string {
+  return `${tablePath}::${featureName}`;
+}
 
 export function GameView(props: {
   table: TableSummary;
@@ -12,6 +21,8 @@ export function GameView(props: {
   status: string;
   favourite: boolean;
   onToggleFavourite: () => void;
+  favouriteCheats: Set<string>;
+  onToggleFavouriteCheat: (key: string) => void;
   onBack: () => void;
   onAttach: () => void;
   onDetachAll: () => void;
@@ -78,24 +89,46 @@ function AttachedPhase(props: {
   status: string;
   favourite: boolean;
   onToggleFavourite: () => void;
+  favouriteCheats: Set<string>;
+  onToggleFavouriteCheat: (key: string) => void;
   onDetachAll: () => void;
   onToggle: (name: string, checked: boolean) => void;
 }) {
-  const {table, features, attachInfo, favourite, onToggleFavourite, onDetachAll, onToggle} = props;
+  const {
+    table, features, attachInfo, favourite, onToggleFavourite,
+    favouriteCheats, onToggleFavouriteCheat, onDetachAll, onToggle,
+  } = props;
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'active' | 'risky'>('all');
   const [tab, setTab] = useState<'cheats' | 'script' | 'history'>('cheats');
   const [showOverlay, setShowOverlay] = useState(false);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+
+  const toggleCollapsed = (cat: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat); else next.add(cat);
+      return next;
+    });
+  };
 
   const activeCount = features.filter((f) => f.active).length;
   const riskyCount = features.filter((f) => f.stability === 'breaks-saves').length;
+  const authors = table.author ? table.author.split(', ').filter(Boolean) : [];
+
+  const filterPlaceholder = useTypewriter(
+    features.length > 0 ? [...features.slice(0, 6).map((f) => f.name.toLowerCase()), 'active', 'risky'] : ['cheats'],
+  );
 
   const visible = features
     .filter((f) => f.name.toLowerCase().includes(query.toLowerCase()))
     .filter((f) => (filter === 'active' ? f.active : filter === 'risky' ? f.stability === 'breaks-saves' : true));
 
+  const favourited = visible.filter((f) => favouriteCheats.has(favouriteKey(table.path, f.name)));
+  const rest = visible.filter((f) => !favouriteCheats.has(favouriteKey(table.path, f.name)));
+
   const byCategory = new Map<string, FeatureView[]>();
-  for (const f of visible) {
+  for (const f of rest) {
     const cat = f.category || 'uncategorized';
     if (!byCategory.has(cat)) byCategory.set(cat, []);
     byCategory.get(cat)!.push(f);
@@ -121,17 +154,28 @@ function AttachedPhase(props: {
         <div class="tag-row">
           <span class="tag">Singleplayer</span>
           <span class="tag">{attachInfo.platform}</span>
+          {table.version && <span class="tag">table v{table.version}</span>}
         </div>
         <div class="kv-list">
           <div class="kv-row"><span class="dim">pid</span><span>{attachInfo.pid}</span></div>
+          <div class="kv-row"><span class="dim">checksum</span><span class="mono-sm">{table.checksum.slice(0, 12)}&hellip;</span></div>
           <div class="kv-row"><span class="dim">cheats</span><span>{features.length} &middot; {riskyCount} risky</span></div>
           <div class="kv-row"><span class="dim">source</span><span>{table.path}</span></div>
         </div>
+
+        {authors.length > 0 && (
+          <div>
+            <div class="section-label">WRITTEN BY</div>
+            <div class="tag-row" style="margin-top:8px">
+              {authors.map((a) => <span key={a} class="author-chip">{a}</span>)}
+            </div>
+          </div>
+        )}
+        <p class="hint">Diffs live in git history &middot; open SCRIPT to read the source.</p>
+
         <div class="sidebar-spacer"/>
-        <div class="toggle-row toggle-row-boxed">
-          <div class="toggle-fake" aria-disabled="true"/>
-          <div class="toggle-label">Save mods</div>
-          <span class="coming-soon">coming soon</span>
+        <div class="toggle-row-boxed">
+          <ToggleRow label="Save mods" hint="Remembers which cheats are switched on now and reapplies them next time you attach."/>
         </div>
         <button class="btn btn-outline btn-full" onClick={() => setShowOverlay(true)}>PREVIEW OVERLAY</button>
         <button class="btn btn-outline btn-full" onClick={onDetachAll}>DETACH &middot; RESTORE ALL</button>
@@ -152,7 +196,7 @@ function AttachedPhase(props: {
             <div class="filter-row">
               <input
                 class="search-input"
-                placeholder={`filter ${features.length} cheats...`}
+                placeholder={`> ${filterPlaceholder}_`}
                 value={query}
                 onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
               />
@@ -165,14 +209,51 @@ function AttachedPhase(props: {
               {visible.length === 0 ? (
                 <div class="empty">No cheats match.</div>
               ) : (
-                categories.map((cat) => (
-                  <div key={cat}>
-                    <div class="category">{cat}</div>
-                    {byCategory.get(cat)!.map((f) => (
-                      <FeatureRow key={f.name} feature={f} attached onToggle={onToggle}/>
-                    ))}
-                  </div>
-                ))
+                <>
+                  {favourited.length > 0 && (
+                    <div>
+                      <div class="category-row favourites-row">
+                        <span class="category-label">&#9733; favourites &middot; pinned</span>
+                        <span class="category-meta">hotkey</span>
+                      </div>
+                      {favourited.map((f) => (
+                        <FeatureRow
+                          key={f.name}
+                          feature={f}
+                          attached
+                          favourite
+                          onToggleFavourite={() => onToggleFavouriteCheat(favouriteKey(table.path, f.name))}
+                          onToggle={onToggle}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {categories.map((cat) => {
+                    const rows = byCategory.get(cat)!;
+                    const isCollapsed = collapsed.has(cat);
+                    return (
+                      <div key={cat}>
+                        <div class="category-row">
+                          <span class="category-label">{cat.toLowerCase()} &middot; {rows.length}</span>
+                          <span class="category-collapse" onClick={() => toggleCollapsed(cat)}>
+                            {isCollapsed ? 'expand ▸' : 'collapse ▾'}
+                          </span>
+                        </div>
+                        {!isCollapsed && rows.map((f) => (
+                          <FeatureRow
+                            key={f.name}
+                            feature={f}
+                            attached
+                            favourite={false}
+                            onToggleFavourite={() => onToggleFavouriteCheat(favouriteKey(table.path, f.name))}
+                            onToggle={onToggle}
+                          />
+                        ))}
+                      </div>
+                    );
+                  })}
+                </>
               )}
             </main>
           </>
@@ -235,16 +316,26 @@ function ScriptTab(props: {table: TableSummary}) {
 function FeatureRow(props: {
   feature: FeatureView;
   attached: boolean;
+  favourite: boolean;
+  onToggleFavourite: () => void;
   onToggle: (name: string, checked: boolean) => void;
 }) {
-  const {feature: f, attached, onToggle} = props;
-  const disabled = !attached || !f.available;
+  const {feature: f, attached, favourite, onToggleFavourite, onToggle} = props;
+  const broken = f.stability === 'broken';
+  const disabled = !attached || !f.available || broken;
   const kind = f.control?.kind ?? 'toggle';
 
+  const rowClass = [
+    'row',
+    disabled && 'unavailable',
+    broken && 'broken',
+    favourite && 'favourite',
+  ].filter(Boolean).join(' ');
+
   return (
-    <div class={`row${disabled ? ' unavailable' : ''}`}>
+    <div class={rowClass}>
       {kind === 'value' ? (
-        <button class="activate-box" disabled={disabled} title="Activate - not implemented yet">&#9656;</button>
+        <button class="activate-box" disabled={disabled} title="Activate - not implemented yet">[&#9656;]</button>
       ) : kind === 'action' ? (
         <span/>
       ) : (
@@ -258,6 +349,13 @@ function FeatureRow(props: {
       <div class="name-cell">
         <span class="name">{f.name}</span>
         <span class={`stability ${f.stability}`}>{f.stability.replace(/-/g, ' ')}</span>
+        <span
+          class={`row-fav${favourite ? ' row-fav-on' : ''}`}
+          onClick={onToggleFavourite}
+          title={favourite ? 'Remove from favourites' : 'Add to favourites'}
+        >
+          {favourite ? '★' : '☆'}
+        </span>
       </div>
       <FeatureControl control={f.control}/>
       <span class={`hotkey${f.hotkey ? '' : ' unbound'}`}>{f.hotkey || 'unbound'}</span>

@@ -41,6 +41,18 @@ export function App() {
     });
   };
 
+  // Same idea, one level down: individual cheats within a table, keyed
+  // "<tablePath>::<featureName>" (see GameView's favouriteKey). Also
+  // session-only.
+  const [favouriteCheats, setFavouriteCheats] = useState<Set<string>>(new Set());
+  const toggleFavouriteCheat = (key: string) => {
+    setFavouriteCheats((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
   const showError = useCallback((err: unknown) => {
     const msg = err instanceof Error ? err.message : String(err);
     setError(msg);
@@ -168,6 +180,8 @@ export function App() {
             status={status}
             favourite={favourites.has(current.path)}
             onToggleFavourite={() => toggleFavourite(current.path)}
+            favouriteCheats={favouriteCheats}
+            onToggleFavouriteCheat={toggleFavouriteCheat}
             onBack={() => setView('library')}
             onAttach={onAttach}
             onDetachAll={onDetachAll}

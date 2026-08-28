@@ -36,6 +36,7 @@ const TablesChangedEvent = "tables:changed"
 type TableSummary struct {
 	Path         string `json:"path"`
 	Name         string `json:"name"`
+	Version      string `json:"version"`
 	Checksum     string `json:"checksum"`
 	FeatureCount int    `json:"featureCount"`
 	Author       string `json:"author"`
@@ -194,6 +195,7 @@ func summarizeTable(path string) TableSummary {
 
 	if t, err := cheats.LoadFile(path); err == nil {
 		summary.Name = t.Metadata.Name
+		summary.Version = t.Metadata.Version
 		summary.FeatureCount = len(t.Features)
 		summary.Author = t.Metadata.Author
 		if summary.Author == "" && len(t.Metadata.Authors) > 0 {
