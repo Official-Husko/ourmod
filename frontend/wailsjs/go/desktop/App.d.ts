@@ -6,6 +6,8 @@ export function Attach():Promise<desktop.AttachInfo>;
 
 export function BuildInfo():Promise<desktop.BuildInfo>;
 
+export function CurrentStatus():Promise<desktop.AppStatus>;
+
 export function DetachAll():Promise<void>;
 
 export function DisableFeature(arg1:string):Promise<void>;

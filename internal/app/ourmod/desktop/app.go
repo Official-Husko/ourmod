@@ -150,25 +150,29 @@ func (a *App) ListTables() []TableSummary {
 
 	out := make([]TableSummary, 0, len(matches))
 	for _, path := range matches {
-		summary := TableSummary{Path: path, Name: filepath.Base(path)}
-
-		if t, err := cheats.LoadFile(path); err == nil {
-			summary.Name = t.Metadata.Name
-			summary.FeatureCount = len(t.Features)
-			summary.Author = t.Metadata.Author
-			if summary.Author == "" && len(t.Metadata.Authors) > 0 {
-				summary.Author = strings.Join(t.Metadata.Authors, ", ")
-			}
-		}
-
-		if data, err := os.ReadFile(path); err == nil {
-			sum := sha256.Sum256(data)
-			summary.Checksum = hex.EncodeToString(sum[:])
-		}
-
-		out = append(out, summary)
+		out = append(out, summarizeTable(path))
 	}
 	return out
+}
+
+func summarizeTable(path string) TableSummary {
+	summary := TableSummary{Path: path, Name: filepath.Base(path)}
+
+	if t, err := cheats.LoadFile(path); err == nil {
+		summary.Name = t.Metadata.Name
+		summary.FeatureCount = len(t.Features)
+		summary.Author = t.Metadata.Author
+		if summary.Author == "" && len(t.Metadata.Authors) > 0 {
+			summary.Author = strings.Join(t.Metadata.Authors, ", ")
+		}
+	}
+
+	if data, err := os.ReadFile(path); err == nil {
+		sum := sha256.Sum256(data)
+		summary.Checksum = hex.EncodeToString(sum[:])
+	}
+
+	return summary
 }
 
 // LoadTable loads path as the current table (detaching from any previously
@@ -206,11 +210,52 @@ func (a *App) ReloadTable() ([]FeatureView, error) {
 	return a.Features(), nil
 }
 
+// AppStatus is everything actually loaded/attached right now. The Go
+// backend's state (a.table, a.att) lives independently of the frontend and
+// survives a webview reload untouched; CurrentStatus lets the frontend
+// recover the true state after one instead of assuming a fresh mount means
+// nothing is loaded or attached.
+type AppStatus struct {
+	Table    *TableSummary `json:"table"`
+	Attach   *AttachInfo   `json:"attach"`
+	Features []FeatureView `json:"features"`
+}
+
+// CurrentStatus reports state only - it never loads, attaches, or changes
+// anything - so it's always safe to call, including on every frontend
+// mount.
+func (a *App) CurrentStatus() AppStatus {
+	var status AppStatus
+
+	if a.table != nil {
+		summary := summarizeTable(a.tablePath)
+		status.Table = &summary
+		status.Features = a.Features()
+	}
+
+	if a.att != nil {
+		status.Attach = &AttachInfo{
+			Attached: true,
+			PID:      a.att.pid,
+			Platform: string(a.att.plat),
+			GameName: a.table.Metadata.Name,
+		}
+	}
+
+	return status
+}
+
 // Attach finds whichever platform the current table declares is actually
-// running and attaches to it.
+// running and attaches to it. If already attached, it returns the existing
+// session's info instead of creating a second session - a second Attach
+// would orphan the first session's undo closures without ever restoring
+// them, leaving features hooked in the game but untracked here.
 func (a *App) Attach() (AttachInfo, error) {
 	if a.table == nil {
 		return AttachInfo{}, fmt.Errorf("no table loaded")
+	}
+	if a.att != nil {
+		return AttachInfo{Attached: true, PID: a.att.pid, Platform: string(a.att.plat), GameName: a.table.Metadata.Name}, nil
 	}
 
 	plat, pid, err := engine.FindRunningPlatform(a.table.Metadata.Platforms)

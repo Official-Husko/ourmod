@@ -1,6 +1,7 @@
 import {useCallback, useEffect, useRef, useState} from 'preact/hooks';
 import {
   Attach,
+  CurrentStatus,
   DetachAll,
   DisableFeature,
   EnableFeature,
@@ -47,8 +48,26 @@ export function App() {
     errorTimer.current = window.setTimeout(() => setError(null), 5000);
   }, []);
 
+  // The Go backend's loaded table / attach session live independently of
+  // this component and survive a webview reload untouched (dev tooling can
+  // trigger one). Recover real state on every mount instead of assuming a
+  // fresh mount means nothing is loaded or attached - otherwise a reload
+  // makes a live session look detached in the UI even though it isn't.
   useEffect(() => {
     ListTables().then(setTables);
+    CurrentStatus().then((s) => {
+      if (s.table) {
+        setCurrent(s.table);
+        setFeatures(s.features ?? []);
+        setView('game');
+      }
+      if (s.attach) {
+        setAttachInfo(s.attach);
+        setStatus(`attached: ${s.attach.gameName} (PID ${s.attach.pid}, ${s.attach.platform})`);
+      } else if (s.table) {
+        setStatus(`${s.table.name} - not attached`);
+      }
+    });
   }, []);
 
   // Live reload: the Go backend watches tables/ and emits this event

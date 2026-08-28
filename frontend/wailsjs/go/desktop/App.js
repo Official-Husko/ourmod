@@ -10,6 +10,10 @@ export function BuildInfo() {
   return window['go']['desktop']['App']['BuildInfo']();
 }
 
+export function CurrentStatus() {
+  return window['go']['desktop']['App']['CurrentStatus']();
+}
+
 export function DetachAll() {
   return window['go']['desktop']['App']['DetachAll']();
 }

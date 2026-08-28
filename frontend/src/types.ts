@@ -26,6 +26,12 @@ export interface AttachInfo {
   gameName: string;
 }
 
+export interface AppStatus {
+  table: TableSummary | null;
+  attach: AttachInfo | null;
+  features: FeatureView[] | null;
+}
+
 export interface BuildInfo {
   goVersion: string;
   os: string;
