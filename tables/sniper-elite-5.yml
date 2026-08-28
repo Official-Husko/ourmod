@@ -288,15 +288,16 @@ features:
             48 85 C0 0F 84 06 00 00 00 B8 E7 03 00 00 C3 B8 E7 03 00 00
 
   - name: Player speed
+    hotkey: F13
     category: Player
-    stability: untested
+    stability: working
     note: "Move faster than the game normally allows."
     control:
       kind: slider
       min: 1
       max: 100
       step: 1
-      default: 25
+      default: 20
 
     targets:
       windows:
@@ -310,9 +311,19 @@ features:
           overwrite: 14
           original: "8B 41 4C 0F 28 C1 0F C6 C0 55 89 44 24 48"
           body: >-
-            83 3D C1 00 00 00 00 0F 85 10 00 00 00 C7 05 B1 00 00 00 3F
-            35 81 42 8B 05 AB 00 00 00 8B 05 A5 00 00 00 0F 28 C1 0F C6
+            83 3D C1 00 00 00 00 0F 85 10 00 00 00 C7 05 B1 00 00 00 B6
+            F3 9B 41 8B 05 AB 00 00 00 8B 05 A5 00 00 00 0F 28 C1 0F C6
             C0 55 89 44 24 48
+
+          # The body above reads/writes a cave-local float32 at cave+0xc8
+          # (four RIP-relative references resolve. This wires that value to the slider above:
+          # written once at enable time (from control.default), and again
+          # live whenever the slider moves, without ever reinstalling the
+          # hook.
+          data:
+            offset: 0xc8
+            type: float32
+            source: control
 
   - name: Get 100000 score in survival
     category: Survival
