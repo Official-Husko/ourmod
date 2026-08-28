@@ -745,6 +745,10 @@ footer {
 
 .kv-list { display: flex; flex-direction: column; gap: 6px; }
 .kv-row { display: flex; justify-content: space-between; gap: 12px; font-size: 11px; }
+/* Labels get a slight green tint rather than plain gray, matching the
+   mockup's KeyValueList - scoped to the label position only, so it doesn't
+   touch .dim's many other uses (log-stream timestamps, etc). */
+.kv-row span:first-child { color: rgba(126, 240, 176, 0.5); }
 
 .danger-zone {
   margin-top: auto;

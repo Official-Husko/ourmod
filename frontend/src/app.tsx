@@ -121,10 +121,14 @@ export function App() {
 
   const onAttach = async () => {
     try {
-      const info: AttachInfo = await Attach();
+      const result = await Attach();
+      const info = result.info;
       setAttachInfo(info);
       setStatus(`attached: ${info.gameName} (PID ${info.pid}, ${info.platform})`);
       setFeatures((await Features()) ?? []);
+      if (result.failed && result.failed.length > 0) {
+        showError(`Save mods: couldn't reapply ${result.failed.join(', ')} - renamed, removed, or a broken signature.`);
+      }
     } catch (err) {
       showError(err);
     }

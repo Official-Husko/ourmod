@@ -43,6 +43,11 @@ export interface AttachInfo {
   gameName: string;
 }
 
+export interface AttachResult {
+  info: AttachInfo;
+  failed: string[] | null;
+}
+
 export interface ReloadResult {
   table: TableSummary;
   features: FeatureView[];

@@ -82,43 +82,51 @@ func savePersistedState(tablePath string, st persistedState) {
 	_ = os.Rename(tmp, path)
 }
 
-// savedMods is one table's "Save mods" preference: whether it's on, and
-// which features it will reapply on the next attach. Unlike persistedState
-// (crash recovery, keyed to one exact still-running game process and
-// cleared on detach), this is a genuine user preference - it has no PID to
-// go stale against, and survives detach, a game restart, and an ourmod
-// restart alike, by design.
-type savedMods struct {
-	Enabled  bool     `json:"enabled"`
-	Features []string `json:"features"`
+// savedModsFile is the single, all-games "Save mods" registry: one shared
+// file, keyed by table path, so enabling or disabling it for one game can
+// never touch another game's entry, and every game's saved set lives
+// together "along other saved mods" rather than scattered across one file
+// per table. A table's presence as a key IS "Save mods is on" - there's no
+// separate enabled flag to fall out of sync with it; turning it off
+// deletes the key outright (see SetSaveModsEnabled), so there's nothing
+// stale left to accidentally resurrect later.
+//
+// Unlike persistedState (crash recovery, keyed to one exact still-running
+// game process and cleared on detach), this is a genuine user preference -
+// it has no PID to go stale against, and survives detach, a game restart,
+// and an ourmod restart alike, by design.
+type savedModsFile struct {
+	Tables map[string][]string `json:"tables"`
 }
 
-func savedModsFilePath(tablePath string) string {
-	name := strings.ReplaceAll(tablePath, string(filepath.Separator), "_")
-	return filepath.Join(stateDir, name+".savedmods.json")
+func savedModsFilePath() string {
+	return filepath.Join(stateDir, "savedmods.json")
 }
 
-func loadSavedMods(tablePath string) (savedMods, bool) {
-	data, err := os.ReadFile(savedModsFilePath(tablePath))
+// loadSavedModsFile reads the shared registry, always returning a non-nil
+// Tables map. A missing or unreadable file just means "nothing saved yet
+// for any game", not an error.
+func loadSavedModsFile() savedModsFile {
+	data, err := os.ReadFile(savedModsFilePath())
 	if err != nil {
-		return savedMods{}, false
+		return savedModsFile{Tables: map[string][]string{}}
 	}
 
-	var sm savedMods
-	if err := json.Unmarshal(data, &sm); err != nil {
-		return savedMods{}, false
+	var f savedModsFile
+	if err := json.Unmarshal(data, &f); err != nil || f.Tables == nil {
+		return savedModsFile{Tables: map[string][]string{}}
 	}
-	return sm, true
+	return f
 }
 
-func saveSavedMods(tablePath string, sm savedMods) {
-	path := savedModsFilePath(tablePath)
+func saveSavedModsFile(f savedModsFile) {
+	path := savedModsFilePath()
 
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return
 	}
 
-	data, err := json.MarshalIndent(sm, "", "  ")
+	data, err := json.MarshalIndent(f, "", "  ")
 	if err != nil {
 		return
 	}

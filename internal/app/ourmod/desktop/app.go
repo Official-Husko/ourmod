@@ -342,38 +342,50 @@ func (a *App) CurrentStatus() AppStatus {
 	return status
 }
 
+// AttachResult is Attach's return: the usual attach info, plus the names
+// of any Save-mods feature that could not be reapplied - see
+// applySavedMods for why one might fail (renamed, removed, no target for
+// this platform, or a broken signature). Empty/nil Failed means either
+// Save mods is off for this table, or everything it remembered came back
+// up fine.
+type AttachResult struct {
+	Info   AttachInfo `json:"info"`
+	Failed []string   `json:"failed"`
+}
+
 // Attach finds whichever platform the current table declares is actually
 // running and attaches to it. If already attached, it returns the existing
 // session's info instead of creating a second session - a second Attach
 // would orphan the first session's undo closures without ever restoring
 // them, leaving features hooked in the game but untracked here.
-func (a *App) Attach() (AttachInfo, error) {
+func (a *App) Attach() (AttachResult, error) {
 	if a.table == nil {
-		return AttachInfo{}, fmt.Errorf("no table loaded")
+		return AttachResult{}, fmt.Errorf("no table loaded")
 	}
 	if a.att != nil {
-		return AttachInfo{Attached: true, PID: a.att.pid, Platform: string(a.att.plat), GameName: a.table.Metadata.Name}, nil
+		info := AttachInfo{Attached: true, PID: a.att.pid, Platform: string(a.att.plat), GameName: a.table.Metadata.Name}
+		return AttachResult{Info: info}, nil
 	}
 
 	plat, pid, err := engine.FindRunningPlatform(a.table.Metadata.Platforms)
 	if err != nil {
-		return AttachInfo{}, err
+		return AttachResult{}, err
 	}
 
 	maps, err := engine.ReadMaps(pid)
 	if err != nil {
-		return AttachInfo{}, err
+		return AttachResult{}, err
 	}
 
 	executable := a.table.Metadata.Platforms[plat].Executable
 	base, err := engine.FindModuleBase(maps, executable)
 	if err != nil {
-		return AttachInfo{}, err
+		return AttachResult{}, err
 	}
 
 	imageSize, err := engine.ReadPEImageSize(pid, base)
 	if err != nil {
-		return AttachInfo{}, err
+		return AttachResult{}, err
 	}
 
 	a.att = &attached{
@@ -386,9 +398,10 @@ func (a *App) Attach() (AttachInfo, error) {
 	}
 
 	a.recoverPersistedState()
-	a.applySavedMods()
+	failed := a.applySavedMods()
 
-	return AttachInfo{Attached: true, PID: pid, Platform: string(plat), GameName: a.table.Metadata.Name}, nil
+	info := AttachInfo{Attached: true, PID: pid, Platform: string(plat), GameName: a.table.Metadata.Name}
+	return AttachResult{Info: info, Failed: failed}, nil
 }
 
 // recoverPersistedState re-identifies features that were active in a
@@ -537,83 +550,110 @@ type SavedMods struct {
 	Features []string `json:"features"`
 }
 
-// GetSavedMods reports the currently loaded table's Save mods preference.
-// Read-only - safe to call any time, including with nothing loaded.
+// GetSavedMods reports the currently loaded table's Save mods preference,
+// from the shared all-games registry. Read-only - safe to call any time,
+// including with nothing loaded.
 func (a *App) GetSavedMods() SavedMods {
 	if a.tablePath == "" {
 		return SavedMods{}
 	}
-	sm, _ := loadSavedMods(a.tablePath)
-	return SavedMods{Enabled: sm.Enabled, Features: sm.Features}
+	features, enabled := loadSavedModsFile().Tables[a.tablePath]
+	return SavedMods{Enabled: enabled, Features: features}
 }
 
 // SetSaveModsEnabled turns Save mods on or off for the currently loaded
-// table. Turning it on immediately snapshots whatever's active right now
-// (if attached) as the remembered set, matching the toggle's own label -
-// "remembers the cheats switched on now", not some future state. Turning
-// it off leaves the remembered set on disk untouched (so re-enabling it
-// restores the last snapshot) - only the Enabled flag changes, which is
-// what applySavedMods and syncSavedMods actually check.
+// table, in the shared registry - each table is its own key, so this never
+// touches another game's entry. Turning it on immediately snapshots
+// whatever's active right now (if attached) as the remembered set,
+// matching the toggle's own label - "remembers the cheats switched on
+// now", not some future state. Turning it off deletes this table's entry
+// outright: there's nothing left to "remember" once it's off, so nothing
+// is left on disk to accidentally resurrect later.
 func (a *App) SetSaveModsEnabled(enabled bool) error {
 	if a.tablePath == "" {
 		return fmt.Errorf("no table loaded")
 	}
 
-	sm, _ := loadSavedMods(a.tablePath)
-	sm.Enabled = enabled
-	if enabled && a.att != nil {
-		sm.Features = a.att.session.ActiveFeatures()
+	f := loadSavedModsFile()
+
+	if !enabled {
+		delete(f.Tables, a.tablePath)
+		saveSavedModsFile(f)
+		return nil
 	}
-	saveSavedMods(a.tablePath, sm)
+
+	features := []string{}
+	if a.att != nil {
+		features = a.att.session.ActiveFeatures()
+	}
+	f.Tables[a.tablePath] = features
+	saveSavedModsFile(f)
 	return nil
 }
 
-// syncSavedMods updates the remembered feature list to match what's
-// actually active, if Save mods is on - called after a deliberate
-// EnableFeature/DisableFeature, so the remembered set always matches "the
-// cheats switched on now". It's deliberately NOT called from DetachAll or
-// revertChangedActiveFeatures: those turn features off without the user
-// asking to stop remembering them, and the whole point of Save mods is
-// that detaching (or a table edit forcing a revert) doesn't erase what to
-// reapply next time.
+// syncSavedMods updates the remembered feature list for the current table
+// to match what's actually active, if Save mods is on for it - called
+// after a deliberate EnableFeature/DisableFeature, so the remembered set
+// always matches "the cheats switched on now". It's deliberately NOT
+// called from DetachAll or revertChangedActiveFeatures: those turn
+// features off without the user asking to stop remembering them, and the
+// whole point of Save mods is that detaching (or a table edit forcing a
+// revert) doesn't erase what to reapply next time.
 func (a *App) syncSavedMods() {
-	sm, ok := loadSavedMods(a.tablePath)
-	if !ok || !sm.Enabled || a.att == nil {
+	if a.att == nil {
 		return
 	}
-	sm.Features = a.att.session.ActiveFeatures()
-	saveSavedMods(a.tablePath, sm)
+
+	f := loadSavedModsFile()
+	if _, enabled := f.Tables[a.tablePath]; !enabled {
+		return
+	}
+	f.Tables[a.tablePath] = a.att.session.ActiveFeatures()
+	saveSavedModsFile(f)
 }
 
 // applySavedMods re-enables whatever Save mods remembers for the current
-// table, if it's on - called once, right after a fresh Attach. Each
-// feature is resolved and enabled the normal way; a feature that's gone,
-// renamed, has no target for this platform, or fails to resolve is simply
-// skipped (best-effort - one broken saved entry shouldn't block the rest,
-// or block attaching at all).
-func (a *App) applySavedMods() {
-	sm, ok := loadSavedMods(a.tablePath)
-	if !ok || !sm.Enabled {
-		return
+// table, if it's on - called once, right after a fresh Attach. Returns the
+// names of any remembered feature that could NOT be reapplied - renamed or
+// removed from the table, no target for this platform, or its signature
+// failed to resolve - so the caller can tell the user about it instead of
+// silently dropping it. A feature already active (e.g. recovered from a
+// crash) counts as success, not failure.
+func (a *App) applySavedMods() []string {
+	names, enabled := loadSavedModsFile().Tables[a.tablePath]
+	if !enabled {
+		return nil
 	}
 
-	for _, name := range sm.Features {
+	var failed []string
+	for _, name := range names {
+		if _, active := a.att.session.ActiveTarget(name); active {
+			continue
+		}
+
 		f, err := a.table.Find(name)
 		if err != nil {
+			failed = append(failed, name)
 			continue
 		}
 		target, ok := f.Targets[a.att.plat]
 		if !ok {
+			failed = append(failed, name)
 			continue
 		}
 		site, err := engine.Resolve(a.att.pid, a.att.maps, a.att.base, a.att.imageSize, target.Signature)
 		if err != nil {
+			failed = append(failed, name)
 			continue
 		}
-		_ = a.att.session.Enable(f, target, site)
+		if err := a.att.session.Enable(f, target, site); err != nil {
+			failed = append(failed, name)
+			continue
+		}
 	}
 
 	a.persistState()
+	return failed
 }
 
 // TableSource returns the raw YAML text of a table file, for the read-only

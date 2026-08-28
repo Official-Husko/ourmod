@@ -157,7 +157,7 @@ function TrainersTable(props: {tables: TableSummary[]}) {
         <div key={t.path} class="trainers-table-row">
           <span class="name">{t.name}</span>
           <span class="dim">{t.featureCount}</span>
-          <span class="dim mono-sm">{formatChecksum(t.checksum)}</span>
+          <span class="mono-sm accent">{formatChecksum(t.checksum)}</span>
           <span class="dim">{t.path}</span>
         </div>
       ))}

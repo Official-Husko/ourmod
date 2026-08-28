@@ -194,8 +194,8 @@ function GamePanel(props: {
           {table.version && <span class="tag">table v{table.version}</span>}
         </div>
         <div class="kv-list">
-          <div class="kv-row"><span class="dim">pid</span><span>{attachInfo ? attachInfo.pid : '—'}</span></div>
-          <div class="kv-row"><span class="dim">checksum</span><span class="mono-sm">{formatChecksum(table.checksum)}</span></div>
+          <div class="kv-row"><span class="dim">table</span><span>{table.version ? `v${table.version}` : 'unversioned'}</span></div>
+          <div class="kv-row"><span class="dim">checksum</span><span class="mono-sm accent">{formatChecksum(table.checksum)}</span></div>
           <div class="kv-row">
             <span class="dim">built for</span>
             <span>{table.compatibleVersions && table.compatibleVersions.length > 0 ? table.compatibleVersions.join(', ') : 'unspecified'}</span>
@@ -357,7 +357,7 @@ function ScriptTab(props: {table: TableSummary}) {
         <div class="kv-list">
           <div class="kv-row"><span class="dim">path</span><span>{props.table.path}</span></div>
           <div class="kv-row"><span class="dim">cheats</span><span>{props.table.featureCount}</span></div>
-          <div class="kv-row"><span class="dim">checksum</span><span class="mono-sm">{formatChecksum(props.table.checksum)}</span></div>
+          <div class="kv-row"><span class="dim">checksum</span><span class="mono-sm accent">{formatChecksum(props.table.checksum)}</span></div>
         </div>
         <p class="hint">Edit the file directly on disk - there's no in-app editor yet.</p>
       </div>
