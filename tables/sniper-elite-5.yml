@@ -1,8 +1,10 @@
 metadata:
-  # uuid v7 as identifier
+  # uuid v7 as identifier (calculated from the table's name and version, so it changes if either changes)
   id: 017f3e5c-1b2a-7e4f-8d3c-9b6a1e2f4c5d
   # Game Title
   name: Sniper Elite 5
+  # SteamAppID (used for auto-detecting the game process) OPTIONAL
+  steamAppId: 1682620
   # Cheat table version
   version: 1.0.0
   # Author of the cheat table if one
@@ -20,10 +22,14 @@ metadata:
     windows:
       executable: Sniper5_vulkan.exe
 
-  # Compatible game versions (should be steam build numbers and game version strings, if known).
+  # Compatible game versions (should be steam build numbers and game version strings, if known). For multiple platforms like steam, gog, epic etc.
   compatibleVersions:
     - 1.0.0
 
+
+# The actual cheat features, each with a name, hotkey, category, and the logic to implement it. Each feature can have multiple targets for different platforms (Windows vs Linux), and each target can be implemented via a hook or a simple patch.
+
+# Still needs a way for the app to know what works for what platform and what versions
 features:
 
   - name: Immortality
