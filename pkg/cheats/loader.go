@@ -115,7 +115,7 @@ func validateFeature(i int, f Feature) []error {
 	}
 
 	switch f.Stability {
-	case StabilityWorking, StabilityUntested, StabilityBreaksSaves, StabilityBroken:
+	case StabilityWorking, StabilityUntested, StabilityBreaksSaves, StabilityBroken, StabilityExperimental:
 	default:
 		errs = append(errs, fmt.Errorf("features[%d] (%s): invalid stability %q", i, f.Name, f.Stability))
 	}
@@ -251,6 +251,12 @@ func validateHook(feature string, plat Platform, h *Hook, control ControlSpec) [
 			}
 		default:
 			errs = append(errs, fmt.Errorf("%s/%s: hook.data.source: unsupported %q (only \"control\" is supported)", feature, plat, h.Data.Source))
+		}
+	}
+
+	for i, d := range h.DataBlocks {
+		if _, err := validateByteTokens(d.Bytes); err != nil {
+			errs = append(errs, fmt.Errorf("%s/%s: hook.dataBlocks[%d].bytes: %w", feature, plat, i, err))
 		}
 	}
 

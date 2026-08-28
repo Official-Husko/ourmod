@@ -90,6 +90,11 @@ features:
   #   broken         - someone tried it and it did NOT work. Distinct from
   #                    "untested" (never tried) - this is a known failure,
   #                    not an unknown.
+  #   experimental   - not a normal cheat yet: a temporary debug/diagnostic
+  #                    hook, or one still being actively redesigned between
+  #                    iterations. Distinct from "untested" (an otherwise-
+  #                    finished feature nobody has tried) - this one isn't
+  #                    finished being designed at all.
   # Every feature below is "untested" because every byte in this file is
   # fabricated filler (see the file header) - none of it has actually been
   # tried against a real process, so nothing here could honestly claim
@@ -199,3 +204,19 @@ features:
           overwrite: 14
           original: "11 22 90 90 33 44 90 90 90 90 90 90 90 90"
           body: "90 90 90 90 90 90 90 90 90 90 90 90 90 90"
+
+          # dataBlocks writes static byte blobs into the cave once, at
+          # enable time - e.g. a lookup table of float32 constants that
+          # body's own code reads back via a RIP-relative reference into
+          # its own cave (offset is relative to the cave's base, same rule
+          # as hook.data.offset above). Unlike hook.data, nothing in the UI
+          # ever changes these again after install - there's no live
+          # source to re-write from. Skip this entirely for a cave-local
+          # value that only needs to start at zero: an mmap'd cave is
+          # already zero-filled for free: this exists for real nonzero
+          # constants your injected code depends on, that can't come from
+          # anywhere else. EXAMPLE ONLY - real offsets/bytes depend on your
+          # own capture.
+          dataBlocks:
+            - offset: 0x300
+              bytes: "00 00 20 40 00 00 A0 3F"

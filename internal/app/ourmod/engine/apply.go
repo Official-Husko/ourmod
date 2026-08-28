@@ -106,7 +106,9 @@ func RecoverPatch(pid int, maps []MemoryMap, target uintptr, p *cheats.Patch) (f
 // bytes and frees the cave. If h.Data is set, dataValue is written into the
 // cave at its offset before the target is patched - see WriteHookData -
 // so the hook never runs with a stale/zero value; dataValue is ignored
-// when h.Data is nil.
+// when h.Data is nil. Every entry in h.DataBlocks is also written before
+// the target is patched - unlike h.Data these are write-once static
+// constants (e.g. a lookup table), never touched again after install.
 func EnableHook(pid int, maps []MemoryMap, target uintptr, h *cheats.Hook, dataValue float64) (undo func() error, cave uintptr, err error) {
 	if h.Type != "abs64" {
 		return nil, 0, fmt.Errorf("unsupported hook type %q", h.Type)
@@ -158,6 +160,22 @@ func EnableHook(pid int, maps []MemoryMap, target uintptr, h *cheats.Hook, dataV
 		if err := WriteHookData(pid, cave, h.Data, dataValue); err != nil {
 			_ = freeMemory(pid, cave, 4096)
 			return nil, 0, fmt.Errorf("write cave data: %w", err)
+		}
+	}
+
+	for i, d := range h.DataBlocks {
+		buf, err := ParseHexBytes(d.Bytes)
+		if err != nil {
+			_ = freeMemory(pid, cave, 4096)
+			return nil, 0, fmt.Errorf("dataBlocks[%d]: %w", i, err)
+		}
+		if uintptr(d.Offset)+uintptr(len(buf)) > 4096 {
+			_ = freeMemory(pid, cave, 4096)
+			return nil, 0, fmt.Errorf("dataBlocks[%d]: offset %#x + %d bytes exceeds the cave", i, d.Offset, len(buf))
+		}
+		if err := WriteMemory(pid, cave+uintptr(d.Offset), buf); err != nil {
+			_ = freeMemory(pid, cave, 4096)
+			return nil, 0, fmt.Errorf("dataBlocks[%d]: write cave data at %#x: %w", i, d.Offset, err)
 		}
 	}
 

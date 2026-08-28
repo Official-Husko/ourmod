@@ -15,6 +15,13 @@ const (
 	// not work - distinct from StabilityUntested (never tried) and
 	// StabilityBreaksSaves (works, but corrupts saves).
 	StabilityBroken Stability = "broken"
+	// StabilityExperimental is for a feature that isn't meant to be judged
+	// as a normal cheat yet - a temporary debug/diagnostic hook, or one
+	// still being actively redesigned between iterations. Distinct from
+	// StabilityUntested (an otherwise-finished feature nobody has tried
+	// against a real game yet): experimental is for something not
+	// finished being designed at all.
+	StabilityExperimental Stability = "experimental"
 )
 
 // Platform is the binary/module format axis: "windows" (PE - native or under
@@ -197,6 +204,26 @@ type Hook struct {
 	// cave-local speed multiplier the first time it runs, read back via a
 	// RIP-relative reference within Body. Optional: most hooks have none.
 	Data *HookData `yaml:"data,omitempty"`
+
+	// DataBlocks are static byte blobs written into the cave once, at
+	// install time only - e.g. a lookup table of float32 constants Body
+	// reads via a RIP-relative reference into its own cave (offsets past
+	// Body+the generated return jump). Unlike Data, nothing in the UI ever
+	// changes a DataBlock again after install; it exists purely because an
+	// anonymous mmap only guarantees the cave starts zeroed, which is fine
+	// for a scratch/accumulator value but not for a table of real nonzero
+	// constants the injected code depends on. Optional: most hooks have
+	// none.
+	DataBlocks []DataBlock `yaml:"dataBlocks,omitempty"`
+}
+
+// DataBlock is one static byte blob written into a hook's cave at Enable
+// time. Offset is relative to the cave's own base address (byte 0, same as
+// Body/HookData.Offset) - matching how a disassembler reports a
+// RIP-relative reference back into the cave.
+type DataBlock struct {
+	Offset uint32 `yaml:"offset"`
+	Bytes  string `yaml:"bytes"`
 }
 
 // HookDataType is the on-the-wire encoding of a Hook.Data value.

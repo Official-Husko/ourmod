@@ -65,6 +65,10 @@ func main() {
 	session := engine.NewSession(pid, maps)
 	fatalOn(session.Enable(feature, target, site))
 
+	if entry, ok := session.Snapshot()[feature.Name]; ok && entry.Cave != 0 {
+		fmt.Printf("code cave:       %#x\n", entry.Cave)
+	}
+
 	fmt.Printf("\n%s enabled.\n", feature.Name)
 	fmt.Println("Press Enter to restore it and exit (Ctrl+C also restores).")
 

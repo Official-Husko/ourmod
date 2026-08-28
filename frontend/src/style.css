@@ -26,6 +26,7 @@
   --accent-glow: rgba(126, 240, 176, 0.55);
   --warn: #ffcf6b;
   --err: #ff9b9b;
+  --exp: #c9a0ff;
   --mono: 'IBM Plex Mono', ui-monospace, 'JetBrains Mono', 'Fira Code', Consolas, monospace;
 }
 
@@ -602,6 +603,8 @@ input:focus { outline: none; border-color: var(--border-strong); }
 .stability.breaks-saves::before { content: "\25a0 "; }
 .stability.broken { color: var(--err); }
 .stability.broken::before { content: "\2715 "; }
+.stability.experimental { color: var(--exp); }
+.stability.experimental::before { content: "\25c6 "; }
 
 .note { grid-column: 2 / -1; padding-top: 3px; font-size: 10px; color: var(--text-dim); line-height: 1.5; }
 

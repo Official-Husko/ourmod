@@ -19,3 +19,4 @@ build/*
 # internal/app/ourmod/desktop/state.go. Machine/session-specific, not part
 # of a cheat table.
 /.ourmod-state
+/*.txt

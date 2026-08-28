@@ -525,9 +525,10 @@ features:
             64 48 8B 1D 64 02 00 00 48 89 59 68 5B 0F 10 41 60 0F 58 D1
 
   - name: Teleport vehicles/NPCs to you
+    hotkey: F22
     category: World
-    stability: broken
-    note: "Teleports the selected vehicle or NPC to your location."
+    stability: untested
+    note: "Continuously pulls nearby vehicles and NPCs into a small ring around you, rather than stacking them all on top of you. Move around a bit right after enabling it first: it needs to see your character once before it has a position to copy."
 
     targets:
       windows:
@@ -540,10 +541,135 @@ features:
           type: abs64
           overwrite: 14
           original: "0F 28 CC 0F 10 58 60 0F 5C 58 70 0F 28 EB"
-          body: >-
-            0F 28 CC 81 B8 C4 00 00 00 00 00 C0 40 0F 85 23 00 00 00 53
-            48 8B 58 60 48 89 1D D5 01 00 00 48 8B 58 64 48 89 1D 2E 02
-            00 00 48 8B 58 68 48 89 1D 87 02 00 00 5B 53 48 8B 1D B6 01
-            00 00 48 89 58 60 48 8B 1D 0F 02 00 00 48 89 58 64 48 8B 1D
-            68 02 00 00 48 89 58 68 5B 0F 10 58 60 0F 5C 58 70 0F 28 EB
 
+          # v2: the first version (a plain "copy player position into every
+          # other object") worked but stacked every pulled NPC/vehicle at
+          # the exact same coordinates. This version keeps the player's
+          # position cave-local (+0x300), never overwrites the player
+          # itself, and spreads every other object onto one of 8 ring slots
+          # (+0x320 X offsets, +0x340 Y offsets) chosen deterministically
+          # from that object's own pointer - so it lands nearby instead of
+          # exactly on top of you, and keeps returning to the same slot
+          # instead of jittering between them frame to frame.
+          body: >-
+            0F 28 CC
+            81 B8 C4 00 00 00 00 00 C0 40
+            75 17
+            0F 10 58 60
+            0F 11 1D E6 02 00 00
+            C7 05 EC 02 00 00 01 00 00 00
+            EB 58
+            83 3D E3 02 00 00 00
+            74 4F
+            53
+            52
+            0F 10 1D C8 02 00 00
+            0F 11 58 60
+            48 89 C3
+            48 89 C2
+            48 C1 EB 04
+            48 C1 EA 0C
+            48 31 D3
+            83 E3 07
+            48 8D 15 C9 02 00 00
+            F3 0F 10 1C 9A
+            F3 0F 58 58 60
+            F3 0F 11 58 60
+            48 8D 15 D3 02 00 00
+            F3 0F 10 1C 9A
+            F3 0F 58 58 64
+            F3 0F 11 58 64
+            5A
+            5B
+            0F 10 58 60
+            0F 5C 58 70
+            0F 28 EB
+
+          # +0x300: saved player position (vec4, 16 bytes) - the mmap'd
+          #   cave already starts zeroed, so this entry is only here for
+          #   documentation, not because it needs a nonzero seed.
+          # +0x310: "have we seen the player yet" flag - same, zero is the
+          #   correct starting value, written explicitly just to document
+          #   the layout.
+          # +0x320 / +0x340: the 8-slot ring's real X/Y offsets (radius
+          #   ~2.5 game units) - these DO need an explicit write, since
+          #   they're real nonzero constants the hook body depends on and
+          #   an anonymous mmap can't provide them.
+          dataBlocks:
+            - offset: 0x300
+              bytes: "00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+            - offset: 0x310
+              bytes: "00 00 00 00"
+            - offset: 0x320
+              bytes: >-
+                00 00 20 40 30 46 E2 3F 00 00 00 00 30 46 E2 BF
+                00 00 20 C0 30 46 E2 BF 00 00 00 00 30 46 E2 3F
+            - offset: 0x340
+              bytes: >-
+                00 00 00 00 30 46 E2 3F 00 00 20 40 30 46 E2 3F
+                00 00 00 00 30 46 E2 BF 00 00 20 C0 30 46 E2 BF
+
+  - name: Entity type probe
+    category: ADebug
+    stability: experimental
+    note: "Temporary diagnostic hook for distinguishing NPCs and vehicles."
+
+    targets:
+      windows:
+        type: hook
+
+        signature:
+          pattern: "0F ?? CC 0F ?? ?? 60 0F ?? ?? 70 0F ?? EB F3"
+          offset: 0
+
+        hook:
+          type: abs64
+          overwrite: 14
+
+          original: "0F 28 CC 0F 10 58 60 0F 5C 58 70 0F 28 EB"
+
+          body: >-
+            9C
+            53
+            52
+            BB 01 00 00 00
+            F0 0F C1 1D F0 02 00 00
+            83 E3 3F
+            89 DA
+            48 C1 E3 05
+            48 C1 E2 04
+            48 01 D3
+            48 8D 15 D9 03 00 00
+            48 01 DA
+            48 89 02
+            8B 98 C0 00 00 00
+            89 5A 08
+            8B 98 C4 00 00 00
+            89 5A 0C
+            8B 98 C8 00 00 00
+            89 5A 10
+            8B 98 CC 00 00 00
+            89 5A 14
+            8B 98 D0 00 00 00
+            89 5A 18
+            8B 98 D4 00 00 00
+            89 5A 1C
+            8B 58 60
+            89 5A 20
+            8B 58 64
+            89 5A 24
+            8B 58 68
+            89 5A 28
+            8B 98 D8 00 00 00
+            89 5A 2C
+            5A
+            5B
+            9D
+            0F 28 CC
+            0F 10 58 60
+            0F 5C 58 70
+            0F 28 EB
+
+          dataBlocks:
+            - offset: 0x300
+              bytes: "00 00 00 00"
