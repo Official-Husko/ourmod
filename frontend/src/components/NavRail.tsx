@@ -63,7 +63,7 @@ export function NavRail(props: {
       </div>
       <div class="rail-footer">
         <a
-          class="rail-link"
+          class="text-link"
           href={REPO_URL}
           onClick={(e) => { e.preventDefault(); BrowserOpenURL(REPO_URL); }}
         >

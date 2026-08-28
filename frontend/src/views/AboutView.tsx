@@ -2,10 +2,13 @@ import {ComponentChildren} from 'preact';
 import {useEffect, useState} from 'preact/hooks';
 import {BuildInfo, TableSummary} from '../types';
 import {BuildInfo as FetchBuildInfo, ListTables} from '../../wailsjs/go/desktop/App';
+import {BrowserOpenURL} from '../../wailsjs/runtime/runtime';
 import {CommandLine} from '../components/CommandLine';
 import {SignalBox} from '../components/SignalBox';
 
 const VERSION = 'v0.1.0-dev';
+const LICENSE = 'GPL-3.0';
+const LICENSE_URL = 'https://github.com/Official-Husko/ourmod/blob/main/LICENSE';
 
 // Static content, but the "four rules" here aren't aspirational copy - each
 // one describes something this codebase actually does today: Session
@@ -13,8 +16,8 @@ const VERSION = 'v0.1.0-dev';
 // cheats are plain YAML anyone can read (pkg/cheats, tables/), and there's
 // no account/update/payment system of any kind. Stats and authors below
 // come from actually reading tables/ - there's nothing to report yet
-// beyond what's actually true, and no LICENSE file exists in this repo so
-// none is claimed here.
+// beyond what's actually true. LICENSE is now a real file in the repo
+// root (plain GPLv3, unmodified) - checked directly rather than assumed.
 export function AboutView() {
   const [tables, setTables] = useState<TableSummary[]>([]);
   const [build, setBuild] = useState<BuildInfo | null>(null);
@@ -32,7 +35,7 @@ export function AboutView() {
       <div class="view-header">
         <span>about</span>
         <span class="spacer"/>
-        <span class="dim mono-sm">{VERSION} &middot; no license file &middot; {authors.length} author{authors.length === 1 ? '' : 's'}</span>
+        <span class="dim mono-sm">{VERSION} &middot; {LICENSE} &middot; {authors.length} author{authors.length === 1 ? '' : 's'}</span>
       </div>
 
       <div class="settings-columns view-pad">
@@ -80,7 +83,12 @@ export function AboutView() {
             <div class="kv-row"><span class="dim">version</span><span>{VERSION}</span></div>
             {build && <div class="kv-row"><span class="dim">built with</span><span>{build.goVersion}</span></div>}
             <div class="kv-row"><span class="dim">platforms</span><span>linux (windows planned)</span></div>
-            <div class="kv-row"><span class="dim">license</span><span>unspecified</span></div>
+            <div class="kv-row">
+              <span class="dim">license</span>
+              <a class="text-link" href={LICENSE_URL} onClick={(e) => { e.preventDefault(); BrowserOpenURL(LICENSE_URL); }}>
+                {LICENSE}
+              </a>
+            </div>
             <div class="kv-row"><span class="dim">funding</span><span>none &middot; no paid tier</span></div>
             <div class="kv-row"><span class="dim">telemetry</span><span>none</span></div>
           </div>

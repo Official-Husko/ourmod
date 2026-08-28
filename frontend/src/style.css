@@ -196,8 +196,8 @@ code { font-family: var(--mono); }
   color: var(--text-faint);
 }
 
-.rail-link { color: inherit; text-decoration: none; cursor: pointer; }
-.rail-link:hover { color: var(--accent); text-decoration: underline; }
+.text-link { color: inherit; text-decoration: none; cursor: pointer; }
+.text-link:hover { color: var(--accent); text-decoration: underline; }
 
 /* --- content shell --- */
 
