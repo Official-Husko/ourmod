@@ -5,7 +5,7 @@ import {useEffect, useState} from 'preact/hooks';
 // since the element is just gone the instant the condition flips) - it
 // stays mounted for one transition duration after `message` clears so the
 // fit-out animation has time to run.
-export function Toast(props: {message: string | null}) {
+export function Toast(props: {message: string | null; tone?: 'error' | 'accent'}) {
   const [rendered, setRendered] = useState<string | null>(null);
   const [visible, setVisible] = useState(false);
 
@@ -25,8 +25,10 @@ export function Toast(props: {message: string | null}) {
 
   if (!rendered) return null;
 
+  const tone = props.tone ?? 'error';
+
   return (
-    <div class={`toast${visible ? ' toast-visible' : ''}`}>
+    <div class={`toast${tone === 'accent' ? ' toast-accent' : ''}${visible ? ' toast-visible' : ''}`}>
       <span class="toast-prompt">&gt;</span>
       <span>{rendered}</span>
     </div>

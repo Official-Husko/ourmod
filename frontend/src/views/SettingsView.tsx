@@ -1,6 +1,7 @@
 import {useEffect, useState} from 'preact/hooks';
 import {BuildInfo, TableSummary} from '../types';
 import {BuildInfo as FetchBuildInfo, TableSource} from '../../wailsjs/go/desktop/App';
+import {hasGoBridge} from '../remoteTables';
 import {CommandLine} from '../components/CommandLine';
 import {ToggleRow} from '../components/ToggleRow';
 import {YamlBlock} from '../components/YamlBlock';
@@ -21,17 +22,29 @@ export function SettingsView(props: {
   current: TableSummary | null;
   showArtwork: boolean;
   onToggleArtwork: (checked: boolean) => void;
+  checkUpdatesOnLaunch: boolean;
+  onToggleCheckUpdatesOnLaunch: (checked: boolean) => void;
+  syncing: boolean;
+  lastSync: string | null;
+  onSyncTables: () => void;
 }) {
   const [build, setBuild] = useState<BuildInfo | null>(null);
   const [confirmText, setConfirmText] = useState('');
   const [source, setSource] = useState('');
 
   useEffect(() => {
+    // Both calls below reach straight into window.go.desktop.App - with no
+    // Go bridge (opened via a bare `vite --host` dev server, see
+    // remoteTables.ts) that throws synchronously rather than rejecting, so
+    // skip them outright instead of relying on .then()/.catch() to guard it.
+    if (!hasGoBridge()) return;
     FetchBuildInfo().then(setBuild);
   }, []);
 
   useEffect(() => {
-    if (props.current) {
+    if (!hasGoBridge()) {
+      setSource('');
+    } else if (props.current) {
       TableSource(props.current.path).then(setSource).catch(() => setSource(''));
     } else {
       setSource('');
@@ -52,7 +65,12 @@ export function SettingsView(props: {
           <div class="section-label">BEHAVIOUR</div>
           <ToggleRow label="Attach automatically when a known game starts" />
           <ToggleRow label="Keep an overlay on top of the game" hint="Needs an always-on-top transparent window; not reliably possible on Wayland compositors." />
-          <ToggleRow label="Check for table updates on launch" hint="No update server exists yet." />
+          <ToggleRow
+            label="Check for table updates on launch"
+            hint="Pulls tables/*.yml from this project's GitHub repo on startup - a table missing locally is added, one that's out of date (lower metadata.version) is updated. Your own edits are never overwritten unless you've bumped the version past what's published."
+            checked={props.checkUpdatesOnLaunch}
+            onChange={props.onToggleCheckUpdatesOnLaunch}
+          />
           <ToggleRow label="Back up the save folder before a cheat marked BREAKS SAVES" />
           <ToggleRow
             label="Show Game Artwork in Background"
@@ -66,6 +84,15 @@ export function SettingsView(props: {
             <div class="kv-row"><span class="dim">tables/</span><span>{'▸'} in use</span></div>
           </div>
           <div><button class="btn btn-outline btn-sm" disabled title="Multiple search folders: coming soon">ADD FOLDER</button></div>
+
+          <div class="section-label">TABLE REGISTRY</div>
+          <p class="hint">github.com/Official-Husko/ourmod/tables - the shared table pool this app itself ships.</p>
+          <div class="btn-row">
+            <button class="btn btn-outline btn-sm" disabled={props.syncing} onClick={props.onSyncTables}>
+              {props.syncing ? 'SYNCING…' : 'SYNC NOW'}
+            </button>
+            {props.lastSync && <span class="dim mono-sm">{props.lastSync}</span>}
+          </div>
 
           <div class="danger-zone">
             <div class="section-label warn">DANGER ZONE</div>

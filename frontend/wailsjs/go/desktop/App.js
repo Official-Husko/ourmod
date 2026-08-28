@@ -54,6 +54,10 @@ export function SetSaveModsEnabled(arg1) {
   return window['go']['desktop']['App']['SetSaveModsEnabled'](arg1);
 }
 
+export function SyncTables() {
+  return window['go']['desktop']['App']['SyncTables']();
+}
+
 export function TableSource(arg1) {
   return window['go']['desktop']['App']['TableSource'](arg1);
 }

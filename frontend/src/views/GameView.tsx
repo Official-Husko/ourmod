@@ -4,6 +4,7 @@ import {GetSavedMods, SetFeatureValue, SetSaveModsEnabled, TableSource} from '..
 import {BrowserOpenURL} from '../../wailsjs/runtime/runtime';
 import {formatChecksum} from '../format';
 import {hasSteamAppId, steamHeaderUrl, steamHeroUrl, steamLogoUrl} from '../steamArt';
+import {hasGoBridge} from '../remoteTables';
 import {CommandLine} from '../components/CommandLine';
 import {FallbackImage} from '../components/FallbackImage';
 import {SignalBox} from '../components/SignalBox';
@@ -45,7 +46,6 @@ export function GameView(props: {
               below - so the artwork bleeds up behind the top status bar
               too, matching the mockup, instead of starting only below it. */}
           <FallbackImage
-            key={table.path}
             class="game-hero-bg"
             alt=""
             srcs={[hasSteamAppId(table.steamAppId) && steamHeroUrl(table.steamAppId), table.heroUrl]}
@@ -141,7 +141,15 @@ function GamePanel(props: {
 
   // Refetch whenever the loaded table changes - it's a per-table
   // preference stored on disk, not something derived from `features`.
+  // GetSavedMods reaches straight into window.go.desktop.App - with no Go
+  // bridge (a remote-fetched preview table, see remoteTables.ts) that
+  // throws synchronously instead of rejecting, so .catch() below would
+  // never even get attached; hasGoBridge() skips the call entirely instead.
   useEffect(() => {
+    if (!hasGoBridge()) {
+      setSaveModsOn(false);
+      return;
+    }
     GetSavedMods().then((sm) => setSaveModsOn(sm.enabled)).catch(() => setSaveModsOn(false));
   }, [table.path]);
 
@@ -162,7 +170,11 @@ function GamePanel(props: {
   // no ptrace/reinstall involved, so no debouncing here. Errors are
   // swallowed rather than toasted: a mid-drag failure (e.g. the feature
   // got disabled from another tab) would otherwise spam a toast per tick.
+  // Guarded up front (not just via .catch()) because a call with no Go
+  // bridge throws synchronously rather than rejecting - see GetSavedMods
+  // above for the same failure mode.
   const onSetFeatureValue = (name: string, value: number) => {
+    if (!hasGoBridge()) return;
     SetFeatureValue(name, value).catch(() => {});
   };
 
@@ -210,13 +222,11 @@ function GamePanel(props: {
         <div class="game-cover">
           <span>{table.name.slice(0, 2).toUpperCase()}</span>
           <FallbackImage
-            key={table.path}
             class="game-cover-img"
             alt={`${table.name} cover art`}
             srcs={[hasSteamAppId(table.steamAppId) && steamHeaderUrl(table.steamAppId), table.headerUrl]}
           />
           <FallbackImage
-            key={table.path}
             class="game-logo-overlay"
             alt=""
             srcs={[hasSteamAppId(table.steamAppId) && steamLogoUrl(table.steamAppId), table.logoUrl]}
@@ -393,6 +403,10 @@ function ScriptTab(props: {table: TableSummary}) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!hasGoBridge()) {
+      setError('No backend connection - this table was fetched from GitHub, not loaded from a local file.');
+      return;
+    }
     TableSource(props.table.path).then(setSource).catch((err) => setError(String(err)));
   }, [props.table.path]);
 

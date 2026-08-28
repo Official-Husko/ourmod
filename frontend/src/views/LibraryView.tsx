@@ -13,6 +13,8 @@ export function LibraryView(props: {
   onSelect: (t: TableSummary) => void;
   favourites: Set<string>;
   onToggleFavourite: (path: string) => void;
+  onFetchOfficialTables: () => void;
+  fetchingOfficial: boolean;
 }) {
   const {tables, favourites, onToggleFavourite} = props;
   const [tab, setTab] = useState<LibTab>('games');
@@ -41,7 +43,15 @@ export function LibraryView(props: {
             <div class="btn-row">
               <button class="btn btn-outline" disabled title="Multiple search folders: coming soon">ADD A FOLDER</button>
               <button class="btn btn-outline" disabled title="Nothing to rescan yet">RESCAN</button>
+              <button class="btn btn-outline" disabled={props.fetchingOfficial} onClick={props.onFetchOfficialTables}>
+                {props.fetchingOfficial ? 'FETCHING…' : 'FETCH OFFICIAL TABLES'}
+              </button>
             </div>
+            <p class="hint">
+              Pulls tables/*.yml straight from GitHub over a plain fetch - works even with no
+              backend connection at all (e.g. opened on another device with no Wails bridge).
+              Read-only: attaching to a real game still needs the actual desktop app.
+            </p>
           </div>
         </div>
       </div>
@@ -128,13 +138,11 @@ function GameGrid(props: {
                 <div class="game-card-art">
                   <span>{t.name.slice(0, 2).toUpperCase()}</span>
                   <FallbackImage
-                    key={t.path}
                     class="game-card-cover-img"
                     alt={`${t.name} cover art`}
                     srcs={[hasSteamAppId(t.steamAppId) && steamHeaderUrl(t.steamAppId), t.headerUrl]}
                   />
                   <FallbackImage
-                    key={t.path}
                     class="game-card-logo-overlay"
                     alt=""
                     srcs={[hasSteamAppId(t.steamAppId) && steamLogoUrl(t.steamAppId), t.logoUrl]}

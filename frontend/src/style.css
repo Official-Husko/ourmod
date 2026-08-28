@@ -1268,3 +1268,11 @@ footer {
 }
 
 .toast-prompt { flex: none; color: var(--err); }
+
+.toast-accent {
+  background: rgba(10, 18, 14, 0.95);
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 20px rgba(126, 240, 176, 0.15);
+}
+.toast-accent .toast-prompt { color: var(--accent); }

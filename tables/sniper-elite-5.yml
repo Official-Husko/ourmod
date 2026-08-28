@@ -1,3 +1,13 @@
+# Cheat ideas
+
+# Aimbot
+# Silent Aim
+# ESP (Using tagging already in the game)
+# Shoot through walls
+# slow motion
+# No Sway
+# Knife every enemy
+
 metadata:
   # uuid v7 as identifier (calculated from the table's name and version, so it changes if either changes)
   id: 017f3e5c-1b2a-7e4f-8d3c-9b6a1e2f4c5d
@@ -12,6 +22,8 @@ metadata:
   # Description of the cheat table
   description: Native Linux/Proton trainer for Sniper Elite 5.
 
+  # The logos and images below are used in the OurMod library to display the game and its cheats. If steamAppId is set, 
+  # the app will try to fetch these from Steam's CDN first, then fall back to these URLs if that fails. If steamAppId is not set, these URLs are used directly.
   logoUrl: https://cdn2.steamgriddb.com/logo/6d91cba46fdc9578e0c8f195890de004.png
   heroUrl: https://cdn2.steamgriddb.com/hero/27f3d04fe0ac180f00979ed6c77408bc.png
   headerUrl: https://cdn2.steamgriddb.com/hero/7d8a4a5ab298bab9ff02abda18040afe.png
@@ -391,7 +403,7 @@ features:
 
   - name: Rank in campaign
     category: Progression
-    stability: untested
+    stability: broken
     note: "Unlocks campaign rank progression."
     control:
       kind: value
@@ -415,7 +427,7 @@ features:
 
   - name: Rank in online
     category: Progression
-    stability: untested
+    stability: broken
     note: "Unlocks multiplayer rank progression."
     control:
       kind: value
@@ -439,7 +451,7 @@ features:
 
   - name: Rank prestige
     category: Progression
-    stability: untested
+    stability: broken
     note: "Unlocks Prestige rank."
     control:
       kind: value
@@ -462,7 +474,7 @@ features:
 
   - name: Teleport to point
     category: World
-    stability: untested
+    stability: broken
     note: "Save your current spot, then load it to teleport back there."
     control:
       kind: action
@@ -491,7 +503,7 @@ features:
 
   - name: Teleport to vehicles/NPC
     category: World
-    stability: untested
+    stability: broken
     note: "Teleports you to the selected vehicle or NPC."
 
     targets:
@@ -514,7 +526,7 @@ features:
 
   - name: Teleport vehicles/NPCs to you
     category: World
-    stability: untested
+    stability: broken
     note: "Teleports the selected vehicle or NPC to your location."
 
     targets:

@@ -40,10 +40,17 @@ func LoadFile(path string) (*CheatTable, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cheats: read %s: %w", path, err)
 	}
+	return Parse(data, path)
+}
 
+// Parse validates and returns a cheat table from raw YAML bytes - the core
+// LoadFile builds on, also usable directly on data that didn't come from a
+// local file (e.g. one just downloaded from a remote table registry).
+// source is used only to label error messages (a path or a URL).
+func Parse(data []byte, source string) (*CheatTable, error) {
 	var t CheatTable
 	if err := yaml.Unmarshal(data, &t); err != nil {
-		return nil, fmt.Errorf("cheats: parse %s: %w", path, err)
+		return nil, fmt.Errorf("cheats: parse %s: %w", source, err)
 	}
 
 	if t.Metadata.ID == "" && t.Metadata.Name != "" {
@@ -51,7 +58,7 @@ func LoadFile(path string) (*CheatTable, error) {
 	}
 
 	if err := t.Validate(); err != nil {
-		return nil, fmt.Errorf("cheats: validate %s: %w", path, err)
+		return nil, fmt.Errorf("cheats: validate %s: %w", source, err)
 	}
 
 	return &t, nil

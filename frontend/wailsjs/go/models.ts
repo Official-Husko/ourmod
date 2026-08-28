@@ -255,6 +255,25 @@ export namespace desktop {
 	        this.features = source["features"];
 	    }
 	}
+	
+	export class TableSyncResult {
+	    added: string[];
+	    updated: string[];
+	    skipped: string[];
+	    failed: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new TableSyncResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.added = source["added"];
+	        this.updated = source["updated"];
+	        this.skipped = source["skipped"];
+	        this.failed = source["failed"];
+	    }
+	}
 
 }
 

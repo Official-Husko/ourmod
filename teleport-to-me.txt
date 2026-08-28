@@ -1,0 +1,568 @@
+Yep — this one is capture-complete and should be portable with the hook engine you already have.
+
+The hook logic is actually pretty clear. Async is using [rax+0xC4] == 0x40C00000 as the discriminator for the player object. 0x40C00000 is the float bit-pattern for 6.0.
+
+Conceptually it does:
+
+if (*(uint32_t *)(rax + 0xC4) == 0x40C00000) {
+    saved1 = *(uint64_t *)(rax + 0x60);
+    saved2 = *(uint64_t *)(rax + 0x64);
+    saved3 = *(uint64_t *)(rax + 0x68);
+}
+
+*(uint64_t *)(rax + 0x60) = saved1;
+*(uint64_t *)(rax + 0x64) = saved2;
+*(uint64_t *)(rax + 0x68) = saved3;
+
+So when the current object is the player, it records the player's position-like data. For the other objects passing through this code, it overwrites those fields with the saved player values — hence vehicles/NPCs getting pulled to you.
+
+Your YAML can be:
+
+- name: Teleport vehicles/NPCs to you
+  hotkey: F22
+  category: Teleport
+  stability: testing
+  note: "Teleport vehicles and NPCs to the player's position."
+
+  targets:
+    windows:
+      type: hook
+
+      signature:
+        pattern: "0F ?? CC 0F ?? ?? 60 0F ?? ?? 70 0F ?? EB F3"
+        offset: 0
+
+      hook:
+        type: abs64
+        overwrite: 14
+
+        original: >-
+          0F 28 CC
+          0F 10 58 60
+          0F 5C 58 70
+          0F 28 EB
+
+        body: >-
+          0F 28 CC
+          81 B8 C4 00 00 00 00 00 C0 40
+          0F 85 23 00 00 00
+          53
+          48 8B 58 60
+          48 89 1D D5 01 00 00
+          48 8B 58 64
+          48 89 1D 2E 02 00 00
+          48 8B 58 68
+          48 89 1D 87 02 00 00
+          5B
+          53
+          48 8B 1D B6 01 00 00
+          48 89 58 60
+          48 8B 1D 0F 02 00 00
+          48 89 58 64
+          48 8B 1D 68 02 00 00
+          48 89 58 68
+          5B
+          0F 10 58 60
+          0F 5C 58 70
+          0F 28 EB
+
+        data:
+          - offset: 0x1f4
+            size: 8
+            bytes: "00 00 00 00 00 00 00 00"
+
+          - offset: 0x258
+            size: 8
+            bytes: "00 00 00 00 00 00 00 00"
+
+          - offset: 0x2bc
+            size: 8
+            bytes: "00 00 00 00 00 00 00 00"
+Your Go engine requirements
+
+The cave needs to preserve these exact relative locations:
+
+cave+0x000  hook body
+cave+0x064  14-byte absolute return trampoline
+
+cave+0x1F4  saved position chunk #1
+cave+0x258  saved position chunk #2
+cave+0x2BC  saved position chunk #3
+
+Your existing 4096-byte allocation is plenty:
+
+highest data end:
+0x2BC + 8 = 0x2C4
+
+allocation:
+0x1000
+
+So the install sequence should be:
+
+mmap 0x1000 bytes
+→ zeroed automatically
+
+write body at cave+0x000
+
+write:
+FF 25 00 00 00 00
+<target+14>
+at cave+0x064
+
+write/initialize data:
+cave+0x1F4 = 0
+cave+0x258 = 0
+cave+0x2BC = 0
+
+patch target with:
+FF 25 00 00 00 00
+<cave address>
+
+For the current build, your scanner should resolve:
+
+target: 0x1404c8cd7
+RVA:    0x4c8cd7
+
+and return to:
+
+0x1404c8ce5
+One correction to the extractor output
+
+These pairs:
+
+body+0x18 -> cave+0x1f4 size=8
+body+0x19 -> cave+0x1f4 size=4
+
+aren't two actual instructions.
+
+The second one is a false positive from our lightweight decoder scanning inside the preceding x86 instruction.
+
+For example the real instruction is:
+
+48 89 1D D5 01 00 00
+mov qword ptr [rip+0x1d5], rbx
+
+but the scanner starts again at its second byte:
+
+89 1D ...
+
+and incorrectly recognizes that as a separate 32-bit RIP-relative store.
+
+Same thing happens for the other pairs.
+
+So the actual data sizes really are:
+
++0x1F4 : 8 bytes
++0x258 : 8 bytes
++0x2BC : 8 bytes
+
+which the generated YAML fortunately already chose correctly.
+
+First native test
+
+Close Async completely, then run yours:
+
+sudo go run cmd/ourmod/main.go \
+  -config se5-cheats.yml \
+  -feature "Teleport vehicles/NPCs to you"
+
+Ideally have the Go program print:
+
+feature target: ...
+target RVA: ...
+code cave: ...
+
+You want:
+
+RVA = 0x4c8cd7
+
+Then enter gameplay near some NPCs/vehicles.
+
+One behavioral detail: the three cave values begin at zero. The hook has to encounter the player object before it has a valid position to copy to other objects. So I'd move your character around briefly after enabling it before judging whether the teleport worked.
+
+If this one works natively, we've now validated three substantially different hook styles: simple immediate modification, mutable cave-local state, and object-dependent shared position state. After that, Glow ESP is a sensible next target.
+
+i teleported 3 enemies that round
+
+Nice — that confirms slot 22 is working natively too.
+
+So your engine has now successfully handled three distinct patterns:
+
+simple code-cave modification
+cave-local mutable values like Player Speed
+shared cave state used across multiple game objects, like the teleport hook
+
+Teleporting 3 enemies in an actual round is the proof we needed that the captured +0x1F4 / +0x258 / +0x2BC state layout is being preserved correctly and the hook is hitting the right objects.
+
+For your YAML, I’d move this one from:
+
+stability: testing
+
+to:
+
+stability: working
+
+Next up, Glow ESP will probably be a different class of feature. If Async has a glow/outline option somewhere, we should capture that first; otherwise we’ll need to find the game’s highlight/outline path directly rather than porting an existing hook.
+
+those were done in async not my go cheat, how do i implement that now? the data i sent before was async trainer data where i teleported 3 enemies to myself
+
+You’re right — I conflated “captured from Async” with “verified in your Go trainer.” The teleport behavior you saw only proves the Async hook works. Now we need to reproduce that exact cave layout in ourmod.
+
+The important new detail is that this hook writes into its own code-cave page at +0x1f4, +0x258, and +0x2bc. So unlike Immortality, you cannot make this cave RX-only after installation. It needs to remain writable + executable, otherwise the first store into those locations can fault.
+
+Use this YAML:
+
+- name: Teleport vehicles/NPCs to you
+  hotkey: F22
+  category: Teleport
+  stability: testing
+  note: "Teleport vehicles and NPCs to the player's position."
+
+  targets:
+    windows:
+      type: hook
+
+      signature:
+        pattern: "0F ?? CC 0F ?? ?? 60 0F ?? ?? 70 0F ?? EB F3"
+        offset: 0
+
+      hook:
+        type: abs64
+        overwrite: 14
+        writable: true
+
+        original: "0F 28 CC 0F 10 58 60 0F 5C 58 70 0F 28 EB"
+
+        body: >-
+          0F 28 CC
+          81 B8 C4 00 00 00 00 00 C0 40
+          0F 85 23 00 00 00
+          53
+          48 8B 58 60
+          48 89 1D D5 01 00 00
+          48 8B 58 64
+          48 89 1D 2E 02 00 00
+          48 8B 58 68
+          48 89 1D 87 02 00 00
+          5B
+          53
+          48 8B 1D B6 01 00 00
+          48 89 58 60
+          48 8B 1D 0F 02 00 00
+          48 89 58 64
+          48 8B 1D 68 02 00 00
+          48 89 58 68
+          5B
+          0F 10 58 60
+          0F 5C 58 70
+          0F 28 EB
+
+        data:
+          - offset: 0x1f4
+            size: 8
+            bytes: "00 00 00 00 00 00 00 00"
+
+          - offset: 0x258
+            size: 8
+            bytes: "00 00 00 00 00 00 00 00"
+
+          - offset: 0x2bc
+            size: 8
+            bytes: "00 00 00 00 00 00 00 00"
+1. Extend your Go config structs
+
+Something along these lines:
+
+type HookDataConfig struct {
+	Offset uint64 `yaml:"offset"`
+	Size   int    `yaml:"size"`
+	Bytes  string `yaml:"bytes"`
+}
+
+type HookConfig struct {
+	Type      string           `yaml:"type"`
+	Overwrite int              `yaml:"overwrite"`
+	Original  string           `yaml:"original"`
+	Body      string           `yaml:"body"`
+	Writable  bool             `yaml:"writable"`
+	Data      []HookDataConfig `yaml:"data"`
+}
+
+yaml.v3 should decode an unquoted:
+
+offset: 0x1f4
+
+into the integer correctly.
+
+2. Calculate the required cave size
+
+Don't assume that:
+
+body length + return jump
+
+is the complete cave anymore.
+
+For this hook:
+
+body        ends at 0x64
+return jump occupies 0x64..0x71
+data exists through 0x2c3
+
+So calculate the highest referenced byte:
+
+func requiredCaveSize(bodyLen int, data []HookDataConfig) uintptr {
+	used := uintptr(bodyLen + 14)
+
+	for _, d := range data {
+		end := uintptr(d.Offset) + uintptr(d.Size)
+		if end > used {
+			used = end
+		}
+	}
+
+	const page = uintptr(0x1000)
+
+	return (used + page - 1) &^ (page - 1)
+}
+
+For this feature that returns:
+
+0x1000
+
+which matches what Async allocated.
+
+3. Write the cave in the correct layout
+
+Your installer should essentially do:
+
+body, err := parseHexBytes(hook.Body)
+if err != nil {
+	return err
+}
+
+caveSize := requiredCaveSize(len(body), hook.Data)
+
+cave, err := remoteMmap(
+	pid,
+	caveSize,
+	unix.PROT_READ|unix.PROT_WRITE,
+)
+if err != nil {
+	return err
+}
+
+Then body at offset zero:
+
+if err := writeMemory(
+	pid,
+	cave,
+	body,
+); err != nil {
+	return err
+}
+
+Return trampoline immediately after the body:
+
+returnAddr := target + uintptr(hook.Overwrite)
+
+returnJump := absoluteJump64(returnAddr)
+
+if err := writeMemory(
+	pid,
+	cave+uintptr(len(body)),
+	returnJump,
+); err != nil {
+	return err
+}
+
+For this capture:
+
+len(body) = 0x64
+
+so that should put the return trampoline at exactly:
+
+cave + 0x64
+
+which is what Async did.
+
+I would actually enforce that during testing:
+
+fmt.Printf("hook body length: %#x\n", len(body))
+
+You want:
+
+hook body length: 0x64
+4. Initialize the cave data
+
+Generic helper:
+
+for _, d := range hook.Data {
+	buf, err := parseHexBytes(d.Bytes)
+	if err != nil {
+		return fmt.Errorf(
+			"data at offset %#x: %w",
+			d.Offset,
+			err,
+		)
+	}
+
+	if d.Size != 0 && len(buf) != d.Size {
+		return fmt.Errorf(
+			"data at offset %#x: configured size %d, got %d bytes",
+			d.Offset,
+			d.Size,
+			len(buf),
+		)
+	}
+
+	addr := cave + uintptr(d.Offset)
+
+	if err := writeMemory(pid, addr, buf); err != nil {
+		return fmt.Errorf(
+			"write cave data at %#x: %w",
+			d.Offset,
+			err,
+		)
+	}
+}
+
+Technically these explicit zero writes aren't necessary because Linux anonymous mmap gives you zeroed memory. But keeping them is useful because the YAML now describes the full layout.
+
+5. This part is critical: keep the cave writable
+
+Your earlier PoC did approximately:
+
+remoteMprotect(
+	pid,
+	cave,
+	caveSize,
+	unix.PROT_READ|unix.PROT_EXEC,
+)
+
+That is fine for Immortality.
+
+It is not fine for this teleport hook.
+
+Change it to:
+
+prot := unix.PROT_READ | unix.PROT_EXEC
+
+if hook.Writable {
+	prot |= unix.PROT_WRITE
+}
+
+if err := remoteMprotect(
+	pid,
+	cave,
+	caveSize,
+	prot,
+); err != nil {
+	return err
+}
+
+For this YAML:
+
+writable: true
+
+you end up with:
+
+PROT_READ | PROT_WRITE | PROT_EXEC
+
+for the cave.
+
+That allows these instructions to work:
+
+mov qword ptr [cave+0x1f4], rbx
+mov qword ptr [cave+0x258], rbx
+mov qword ptr [cave+0x2bc], rbx
+
+Without write permission, the hook can crash the game.
+
+This same observation also matters for Player Speed, because that hook contains:
+
+mov dword ptr [cave+0xc8], 0x419bf3b6
+
+so Player Speed should likely have:
+
+writable: true
+
+too.
+
+Then patch the game target
+
+Only after the complete cave is ready:
+
+entry := absoluteJump64(cave)
+
+if len(entry) > hook.Overwrite {
+	return fmt.Errorf(
+		"14-byte abs jump exceeds overwrite length %d",
+		hook.Overwrite,
+	)
+}
+
+patch := make([]byte, hook.Overwrite)
+copy(patch, entry)
+
+for i := len(entry); i < len(patch); i++ {
+	patch[i] = 0x90
+}
+
+if err := writeProtectedMemory(
+	pid,
+	target,
+	patch,
+); err != nil {
+	return err
+}
+
+For this hook overwrite == 14, so it's exactly the 14-byte trampoline with no NOPs.
+
+What your debug output should show
+
+With Async completely closed:
+
+sudo go run cmd/ourmod/main.go \
+  -config se5-cheats.yml \
+  -feature "Teleport vehicles/NPCs to you"
+
+You want something like:
+
+game PID: ...
+module base: 0x140000000
+feature target: 0x1404c8cd7
+target RVA:     0x4c8cd7
+
+hook body:      0x64 bytes
+cave size:      0x1000
+code cave:      0x7f..........
+cave writable:  yes
+
+data +0x1f4: 8 bytes
+data +0x258: 8 bytes
+data +0x2bc: 8 bytes
+
+Teleport vehicles/NPCs to you enabled.
+
+The RVA is the important sanity check:
+
+0x4c8cd7
+You can verify the state before testing the teleport
+
+Suppose your Go trainer reports:
+
+code cave: 0x7fffff123000
+
+Attach GDB and initially check:
+
+x/gx 0x7fffff1231f4
+x/gx 0x7fffff123258
+x/gx 0x7fffff1232bc
+
+Initially they're expected to be zero.
+
+After moving your player around and letting the hooked code execute, at least those saved values should become nonzero.
+
+Then see whether NPCs/vehicles are pulled to your character.
+
+So the two changes that actually matter for making this work in your Go trainer are preserving the explicit data offsets and not converting this cave to RX-only. The Async capture already gives us everything else we need.
