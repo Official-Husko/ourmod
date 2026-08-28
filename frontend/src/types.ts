@@ -9,6 +9,20 @@ export interface TableSummary {
   author: string;
 }
 
+// Matches the generated wailsjs FeatureView.control.kind, which comes
+// through as plain string (Go's ControlView.Kind has no enum type) - kept
+// as string here too, the same way `stability` already is, rather than
+// narrowing to a union that the generated bindings can't satisfy.
+export interface ControlView {
+  kind: string;
+  min?: number;
+  max?: number;
+  step?: number;
+  default?: number;
+  unit?: string;
+  actions?: string[];
+}
+
 export interface FeatureView {
   name: string;
   category: string;
@@ -17,6 +31,7 @@ export interface FeatureView {
   note: string;
   available: boolean;
   active: boolean;
+  control: ControlView;
 }
 
 export interface AttachInfo {

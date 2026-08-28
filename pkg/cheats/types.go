@@ -56,6 +56,33 @@ const (
 	FeatureTypePointer FeatureType = "pointer"
 )
 
+// ControlKind is how the player interacts with a feature in the UI -
+// orthogonal to Type (which describes how the underlying bytes are
+// applied: patch vs hook). Defaults to ControlToggle when Control is
+// omitted, matching every feature's behavior before this field existed.
+type ControlKind string
+
+const (
+	ControlToggle ControlKind = "toggle" // on/off checkbox (the default)
+	ControlValue  ControlKind = "value"  // a number field + an "Activate" button (one-shot set)
+	ControlSlider ControlKind = "slider" // a continuously adjustable number, dragged or typed
+	ControlAction ControlKind = "action" // one or more named one-shot buttons (e.g. Save/Load)
+)
+
+// ControlSpec configures a non-toggle Control. Which fields are meaningful
+// depends on Kind: Min/Max/Step/Default/Unit for ControlSlider (and
+// optionally ControlValue), Actions for ControlAction. Unused fields are
+// left zero.
+type ControlSpec struct {
+	Kind    ControlKind `yaml:"kind,omitempty"`
+	Min     *float64    `yaml:"min,omitempty"`
+	Max     *float64    `yaml:"max,omitempty"`
+	Step    *float64    `yaml:"step,omitempty"`
+	Default *float64    `yaml:"default,omitempty"`
+	Unit    string      `yaml:"unit,omitempty"`    // cosmetic suffix, e.g. "%" or "x"
+	Actions []string    `yaml:"actions,omitempty"` // e.g. ["Save", "Load"], only for ControlAction
+}
+
 // CheatTable is the top-level shape of a cheat table YAML file.
 type CheatTable struct {
 	Metadata Metadata  `yaml:"metadata"`
@@ -90,6 +117,7 @@ type Feature struct {
 	// in campaign"). It is shown directly in the UI - not the place for
 	// reverse-engineering/provenance detail about the signature or hook.
 	Note    string              `yaml:"note,omitempty"`
+	Control ControlSpec         `yaml:"control,omitempty"`
 	Targets map[Platform]Target `yaml:"targets"`
 }
 

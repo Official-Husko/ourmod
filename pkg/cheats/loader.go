@@ -92,11 +92,35 @@ func validateFeature(i int, f Feature) []error {
 		errs = append(errs, fmt.Errorf("features[%d] (%s): invalid stability %q", i, f.Name, f.Stability))
 	}
 
+	errs = append(errs, validateControl(f.Name, f.Control)...)
+
 	if len(f.Targets) == 0 {
 		errs = append(errs, fmt.Errorf("features[%d] (%s): at least one platform target is required", i, f.Name))
 	}
 	for plat, tgt := range f.Targets {
 		errs = append(errs, validateTarget(f.Name, plat, tgt)...)
+	}
+
+	return errs
+}
+
+func validateControl(feature string, c ControlSpec) []error {
+	var errs []error
+
+	switch c.Kind {
+	case "", ControlToggle, ControlValue:
+	case ControlSlider:
+		if c.Min == nil || c.Max == nil {
+			errs = append(errs, fmt.Errorf("%s: control.kind \"slider\" requires min and max", feature))
+		} else if *c.Max <= *c.Min {
+			errs = append(errs, fmt.Errorf("%s: control.max (%v) must be greater than control.min (%v)", feature, *c.Max, *c.Min))
+		}
+	case ControlAction:
+		if len(c.Actions) == 0 {
+			errs = append(errs, fmt.Errorf("%s: control.kind \"action\" requires at least one entry in control.actions", feature))
+		}
+	default:
+		errs = append(errs, fmt.Errorf("%s: control.kind: unknown %q", feature, c.Kind))
 	}
 
 	return errs

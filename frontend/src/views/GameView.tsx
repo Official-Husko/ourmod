@@ -1,5 +1,5 @@
 import {useEffect, useState} from 'preact/hooks';
-import {AttachInfo, FeatureView, TableSummary} from '../types';
+import {AttachInfo, ControlView, FeatureView, TableSummary} from '../types';
 import {TableSource} from '../../wailsjs/go/desktop/App';
 import {CommandLine} from '../components/CommandLine';
 import {OverlayPreview} from '../components/OverlayPreview';
@@ -239,22 +239,75 @@ function FeatureRow(props: {
 }) {
   const {feature: f, attached, onToggle} = props;
   const disabled = !attached || !f.available;
+  const kind = f.control?.kind ?? 'toggle';
 
   return (
     <div class={`row${disabled ? ' unavailable' : ''}`}>
-      <input
-        type="checkbox"
-        checked={f.active}
-        disabled={disabled}
-        onChange={(e) => onToggle(f.name, (e.target as HTMLInputElement).checked)}
-      />
+      {kind === 'value' ? (
+        <button class="activate-box" disabled={disabled} title="Activate - not implemented yet">&#9656;</button>
+      ) : kind === 'action' ? (
+        <span/>
+      ) : (
+        <input
+          type="checkbox"
+          checked={f.active}
+          disabled={disabled}
+          onChange={(e) => onToggle(f.name, (e.target as HTMLInputElement).checked)}
+        />
+      )}
       <div class="name-cell">
         <span class="name">{f.name}</span>
         <span class={`stability ${f.stability}`}>{f.stability.replace(/-/g, ' ')}</span>
       </div>
-      <span/>
+      <FeatureControl control={f.control}/>
       <span class={`hotkey${f.hotkey ? '' : ' unbound'}`}>{f.hotkey || 'unbound'}</span>
-      {f.note && <div class="note">{f.note}</div>}
+      {(f.note || kind !== 'toggle') && (
+        <div class="note">
+          {f.note}
+          {kind !== 'toggle' && <span class="coming-soon"> &middot; not implemented yet</span>}
+        </div>
+      )}
     </div>
   );
+}
+
+// FeatureControl renders the non-toggle interaction a feature's control
+// calls for. None of these write anything real yet - the engine only knows
+// how to apply fixed patch/hook bytes, not a player-typed value or a saved
+// position - so every control here is inert (disabled) until real
+// signature data backs it. The shape is real so the UI matches the
+// intended design; only the wiring is deferred.
+function FeatureControl(props: {control: ControlView}) {
+  const {control} = props;
+
+  switch (control.kind) {
+    case 'slider': {
+      const min = control.min ?? 0;
+      const max = control.max ?? 100;
+      const step = control.step ?? 1;
+      const value = control.default ?? min;
+      return (
+        <div class="control control-slider" title="Not implemented yet">
+          <input type="range" min={min} max={max} step={step} value={value} disabled/>
+          <span class="control-readout">{value}{control.unit ?? ''}</span>
+        </div>
+      );
+    }
+    case 'value':
+      return (
+        <div class="control control-value" title="Not implemented yet">
+          <input type="number" placeholder="0" disabled/>
+        </div>
+      );
+    case 'action':
+      return (
+        <div class="control control-action" title="Not implemented yet">
+          {(control.actions ?? []).map((a) => (
+            <button key={a} class="btn-mini" disabled>{a.toUpperCase()}</button>
+          ))}
+        </div>
+      );
+    default:
+      return <span/>;
+  }
 }

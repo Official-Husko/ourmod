@@ -30,6 +30,10 @@ metadata:
 # The actual cheat features, each with a name, hotkey, category, and the logic to implement it. Each feature can have multiple targets for different platforms (Windows vs Linux), and each target can be implemented via a hook or a simple patch.
 
 # Still needs a way for the app to know what works for what platform and what versions
+
+# Also we need a category section so the cheat maker can define categories and their order, and the app can display them in that order. and organize the cheats properly
+
+
 features:
 
   - name: Immortality
@@ -287,6 +291,12 @@ features:
     category: Player
     stability: untested
     note: "Move faster than the game normally allows."
+    control:
+      kind: slider
+      min: 1
+      max: 100
+      step: 1
+      default: 25
 
     targets:
       windows:
@@ -368,6 +378,8 @@ features:
     category: Progression
     stability: untested
     note: "Unlocks campaign rank progression."
+    control:
+      kind: value
 
     targets:
       windows:
@@ -390,6 +402,8 @@ features:
     category: Progression
     stability: untested
     note: "Unlocks multiplayer rank progression."
+    control:
+      kind: value
 
     targets:
       windows:
@@ -412,6 +426,8 @@ features:
     category: Progression
     stability: untested
     note: "Unlocks Prestige rank."
+    control:
+      kind: value
 
     targets:
       windows:
@@ -432,7 +448,10 @@ features:
   - name: Teleport to point
     category: World
     stability: untested
-    note: "Teleports you to your marked map location."
+    note: "Save your current spot, then load it to teleport back there."
+    control:
+      kind: action
+      actions: ["Save", "Load"]
 
     targets:
       windows:

@@ -44,13 +44,46 @@ type TableSummary struct {
 // FeatureView is the JSON-friendly projection of a cheats.Feature the
 // frontend actually needs - never the raw signature/patch/hook bytes.
 type FeatureView struct {
-	Name      string `json:"name"`
-	Category  string `json:"category"`
-	Hotkey    string `json:"hotkey"`
-	Stability string `json:"stability"`
-	Note      string `json:"note"`
-	Available bool   `json:"available"` // has a target for the attached platform
-	Active    bool   `json:"active"`
+	Name      string      `json:"name"`
+	Category  string      `json:"category"`
+	Hotkey    string      `json:"hotkey"`
+	Stability string      `json:"stability"`
+	Note      string      `json:"note"`
+	Available bool        `json:"available"` // has a target for the attached platform
+	Active    bool        `json:"active"`
+	Control   ControlView `json:"control"`
+}
+
+// ControlView is the JSON-friendly projection of a cheats.ControlSpec.
+// Kind is always populated ("toggle" when the table left it unset); the
+// engine only ever applies a toggle today, so a non-toggle Kind's
+// Activate/Apply/action is rendered but disabled in the UI until real
+// signature data backs it - see EnableFeature/DisableFeature, which are
+// the only mechanisms this app can currently drive.
+type ControlView struct {
+	Kind    string   `json:"kind"`
+	Min     *float64 `json:"min,omitempty"`
+	Max     *float64 `json:"max,omitempty"`
+	Step    *float64 `json:"step,omitempty"`
+	Default *float64 `json:"default,omitempty"`
+	Unit    string   `json:"unit,omitempty"`
+	Actions []string `json:"actions,omitempty"`
+}
+
+func newControlView(c cheats.ControlSpec) ControlView {
+	kind := string(c.Kind)
+	if kind == "" {
+		kind = string(cheats.ControlToggle)
+	}
+	return ControlView{
+		Kind:    kind,
+		Min:     c.Min,
+		Max:     c.Max,
+		Step:    c.Step,
+		Default: c.Default,
+		Unit:    c.Unit,
+		Actions: c.Actions,
+	}
 }
 
 // AttachInfo describes the current attach state for the header/status bar.
@@ -480,6 +513,7 @@ func (a *App) Features() []FeatureView {
 			Note:      f.Note,
 			Available: available,
 			Active:    active[strings.ToLower(f.Name)],
+			Control:   newControlView(f.Control),
 		})
 	}
 	return out

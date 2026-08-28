@@ -519,6 +519,85 @@ input:focus { outline: none; border-color: var(--border-strong); }
 
 .note { grid-column: 2 / -1; padding-top: 3px; font-size: 10px; color: var(--text-dim); line-height: 1.5; }
 
+/* --- non-toggle feature controls (value / slider / action) --- */
+
+.activate-box {
+  width: 15px;
+  height: 15px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--accent);
+  font-size: 10px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.activate-box:disabled { cursor: default; opacity: 0.5; }
+
+.control { display: flex; align-items: center; gap: 8px; }
+
+.control-slider input[type="range"] {
+  flex: 1;
+  min-width: 0;
+  appearance: none;
+  height: 6px;
+  border: 1px solid var(--border-strong);
+  background: rgba(126, 240, 176, 0.12);
+  cursor: not-allowed;
+}
+.control-slider input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 5px;
+  height: 12px;
+  background: var(--accent);
+  opacity: 0.5;
+}
+.control-slider input[type="range"]::-moz-range-thumb {
+  width: 5px;
+  height: 12px;
+  border: none;
+  background: var(--accent);
+  opacity: 0.5;
+}
+.control-readout { flex: none; font-size: 11px; color: var(--text-dim); }
+
+.control-value input[type="number"] {
+  width: 64px;
+  flex: none;
+  padding: 5px 6px;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.control-value input[type="number"]:disabled { color: var(--text-faint); cursor: not-allowed; }
+.control-value input[type="number"]::-webkit-inner-spin-button,
+.control-value input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.control-action { flex-wrap: wrap; }
+
+.btn-mini {
+  flex: none;
+  padding: 4px 8px;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+.btn-mini:disabled { opacity: 0.45; cursor: not-allowed; }
+
 .hotkey {
   justify-self: end;
   padding: 3px 8px;
