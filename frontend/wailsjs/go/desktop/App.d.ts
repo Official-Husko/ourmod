@@ -20,6 +20,6 @@ export function ListTables():Promise<Array<desktop.TableSummary>>;
 
 export function LoadTable(arg1:string):Promise<Array<desktop.FeatureView>>;
 
-export function ReloadTable():Promise<Array<desktop.FeatureView>>;
+export function ReloadTable():Promise<desktop.ReloadResult>;
 
 export function TableSource(arg1:string):Promise<string>;

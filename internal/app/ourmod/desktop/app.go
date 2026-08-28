@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"time"
@@ -190,24 +191,80 @@ func (a *App) LoadTable(path string) ([]FeatureView, error) {
 	return a.Features(), nil
 }
 
+// ReloadResult is ReloadTable's return: the refreshed feature list, plus
+// the names of any active feature that got reverted because its own
+// definition changed out from under it.
+type ReloadResult struct {
+	Features []FeatureView `json:"features"`
+	Reverted []string      `json:"reverted"`
+}
+
 // ReloadTable re-reads the currently loaded table's file from disk and
 // returns the refreshed feature list, *without* detaching - unlike
 // LoadTable, this is meant to be called in response to a live file edit
-// while a session may already be attached, so it must not disturb it.
-// Enabled features stay enabled even if their signature/hook data changed
-// underneath them; the next toggle resolves against the new data.
-func (a *App) ReloadTable() ([]FeatureView, error) {
+// while a session may already be attached, so it must not disturb it. If
+// editing the file changed (or removed) the target for a feature that's
+// currently active, that feature is reverted first - see
+// revertChangedActiveFeatures for why.
+func (a *App) ReloadTable() (ReloadResult, error) {
 	if a.tablePath == "" {
-		return nil, fmt.Errorf("no table loaded")
+		return ReloadResult{}, fmt.Errorf("no table loaded")
 	}
 
 	table, err := cheats.LoadFile(a.tablePath)
 	if err != nil {
-		return nil, err
+		return ReloadResult{}, err
+	}
+
+	var reverted []string
+	if a.att != nil {
+		reverted = a.revertChangedActiveFeatures(table)
 	}
 
 	a.table = table
-	return a.Features(), nil
+
+	if a.att != nil {
+		a.persistState()
+	}
+
+	return ReloadResult{Features: a.Features(), Reverted: reverted}, nil
+}
+
+// revertChangedActiveFeatures disables any currently-active feature whose
+// target for the attached platform is different (or gone) in newTable.
+// Without this, editing an active feature's signature/patch/hook in the
+// table file would leave the *old* bytes physically running in the game
+// while the UI silently starts describing it as the *new* definition - the
+// two would quietly disagree about what's actually installed. Restoring
+// uses each feature's own captured undo closure (from Session.Enable /
+// Recover), which never consults a.table, so this is safe even if the new
+// definition in the file is broken or half-written.
+func (a *App) revertChangedActiveFeatures(newTable *cheats.CheatTable) []string {
+	var reverted []string
+
+	for _, name := range a.att.session.ActiveFeatures() {
+		oldFeature, ok := a.att.session.ActiveTarget(name)
+		if !ok {
+			continue
+		}
+		oldTarget := oldFeature.Targets[a.att.plat]
+
+		changed := true
+		if newFeature, err := newTable.Find(name); err == nil {
+			if newTarget, ok := newFeature.Targets[a.att.plat]; ok {
+				changed = !reflect.DeepEqual(oldTarget, newTarget)
+			}
+		}
+
+		if !changed {
+			continue
+		}
+		if err := a.att.session.Disable(name); err == nil {
+			reverted = append(reverted, name)
+		}
+	}
+
+	return reverted
 }
 
 // AppStatus is everything actually loaded/attached right now. The Go
@@ -288,7 +345,58 @@ func (a *App) Attach() (AttachInfo, error) {
 		imageSize: imageSize,
 	}
 
+	a.recoverPersistedState()
+
 	return AttachInfo{Attached: true, PID: pid, Platform: string(plat), GameName: a.table.Metadata.Name}, nil
+}
+
+// recoverPersistedState re-identifies features that were active in a
+// previous ourmod process against this same still-running game process
+// (a crash, or a dev-tooling restart, kills only ourmod - the game process
+// itself never stopped, so anything it had injected is still physically
+// there, just untracked by this fresh Session). It's a no-op, not an
+// error, whenever there's nothing to recover: no state file, the game
+// process has since restarted under a new PID (nothing survives that - the
+// recorded addresses are meaningless), or a recorded feature's bytes don't
+// match what was recorded (stale record from before an edit). Recover only
+// ever reads memory, so a false read here can't corrupt anything.
+func (a *App) recoverPersistedState() {
+	st, ok := loadPersistedState(a.tablePath)
+	if !ok || st.PID != a.att.pid {
+		return
+	}
+
+	for name, pf := range st.Features {
+		f, err := a.table.Find(name)
+		if err != nil {
+			continue
+		}
+		target, ok := f.Targets[a.att.plat]
+		if !ok {
+			continue
+		}
+		_, _ = a.att.session.Recover(f, target, uintptr(pf.Site), uintptr(pf.Cave))
+	}
+
+	a.persistState()
+}
+
+// persistState writes the current session's active-feature locations to
+// disk (or clears the file if nothing's active / nothing's attached), so a
+// future process can recover them via recoverPersistedState. Called after
+// every change to what's active.
+func (a *App) persistState() {
+	if a.att == nil {
+		savePersistedState(a.tablePath, persistedState{})
+		return
+	}
+
+	snap := a.att.session.Snapshot()
+	features := make(map[string]persistedFeature, len(snap))
+	for name, e := range snap {
+		features[strings.ToLower(name)] = persistedFeature{Site: uint64(e.Site), Cave: uint64(e.Cave)}
+	}
+	savePersistedState(a.tablePath, persistedState{PID: a.att.pid, Features: features})
 }
 
 // DetachAll restores every active feature and clears attach state.
@@ -298,6 +406,7 @@ func (a *App) DetachAll() error {
 	}
 	err := a.att.session.DisableAll()
 	a.att = nil
+	savePersistedState(a.tablePath, persistedState{})
 	return err
 }
 
@@ -322,7 +431,11 @@ func (a *App) EnableFeature(name string) error {
 		return err
 	}
 
-	return a.att.session.Enable(f, target, site)
+	if err := a.att.session.Enable(f, target, site); err != nil {
+		return err
+	}
+	a.persistState()
+	return nil
 }
 
 // DisableFeature restores a single active feature by name.
@@ -330,7 +443,11 @@ func (a *App) DisableFeature(name string) error {
 	if a.att == nil {
 		return fmt.Errorf("not attached")
 	}
-	return a.att.session.Disable(name)
+	if err := a.att.session.Disable(name); err != nil {
+		return err
+	}
+	a.persistState()
+	return nil
 }
 
 // Features returns the current table's features, annotated with whether

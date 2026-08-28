@@ -26,6 +26,11 @@ export interface AttachInfo {
   gameName: string;
 }
 
+export interface ReloadResult {
+  features: FeatureView[];
+  reverted: string[] | null;
+}
+
 export interface AppStatus {
   table: TableSummary | null;
   attach: AttachInfo | null;

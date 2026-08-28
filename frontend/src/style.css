@@ -762,14 +762,13 @@ footer {
 .fav-badge {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
   border: 1px solid var(--border);
-  font-size: 9.5px;
-  letter-spacing: 0.1em;
+  font-size: 14px;
   color: var(--text-dim);
   cursor: pointer;
-  white-space: nowrap;
 }
 
 .fav-badge-on { border-color: var(--border-strong); background: rgba(126, 240, 176, 0.08); color: var(--accent); }

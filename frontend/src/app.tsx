@@ -79,7 +79,12 @@ export function App() {
     return EventsOn('tables:changed', (path: string) => {
       ListTables().then(setTables);
       if (current && path === current.path) {
-        ReloadTable().then((loaded) => setFeatures(loaded ?? [])).catch(() => {
+        ReloadTable().then((result) => {
+          setFeatures(result.features ?? []);
+          if (result.reverted && result.reverted.length > 0) {
+            showError(`Reverted (definition changed): ${result.reverted.join(', ')}`);
+          }
+        }).catch(() => {
           // Likely a transient partial write mid-save; the next change
           // event (editors usually fire several per save) will succeed.
         });

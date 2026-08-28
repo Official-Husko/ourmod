@@ -110,8 +110,12 @@ function AttachedPhase(props: {
         </div>
         <div class="game-title-row">
           <div class="game-title">{table.name}</div>
-          <span class={`fav-badge${favourite ? ' fav-badge-on' : ''}`} onClick={onToggleFavourite}>
-            {favourite ? '★ FAVOURITE' : '☆ FAVOURITE'}
+          <span
+            class={`fav-badge${favourite ? ' fav-badge-on' : ''}`}
+            onClick={onToggleFavourite}
+            title={favourite ? 'Remove from favourites' : 'Add to favourites'}
+          >
+            {favourite ? '★' : '☆'}
           </span>
         </div>
         <div class="tag-row">
