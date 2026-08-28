@@ -93,6 +93,7 @@ export namespace desktop {
 	    checksum: string;
 	    featureCount: number;
 	    author: string;
+	    compatibleVersions: string[];
 	
 	    static createFrom(source: any = {}) {
 	        return new TableSummary(source);
@@ -106,6 +107,7 @@ export namespace desktop {
 	        this.checksum = source["checksum"];
 	        this.featureCount = source["featureCount"];
 	        this.author = source["author"];
+	        this.compatibleVersions = source["compatibleVersions"];
 	    }
 	}
 	export class AppStatus {
@@ -162,6 +164,7 @@ export namespace desktop {
 	
 	
 	export class ReloadResult {
+	    table: TableSummary;
 	    features: FeatureView[];
 	    reverted: string[];
 	
@@ -171,6 +174,7 @@ export namespace desktop {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.table = this.convertValues(source["table"], TableSummary);
 	        this.features = this.convertValues(source["features"], FeatureView);
 	        this.reverted = source["reverted"];
 	    }

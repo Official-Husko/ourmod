@@ -97,12 +97,15 @@ function GameGrid(props: {
 
   return (
     <>
-      <input
-        class="search-input"
-        placeholder={`> ${props.typedExample}_`}
-        value={props.query}
-        onInput={(e) => props.onQueryChange((e.target as HTMLInputElement).value)}
-      />
+      <div class="search-input-wrap hero">
+        <span class="search-prompt">&gt;</span>
+        <input
+          class="search-input"
+          placeholder={`${props.typedExample}_`}
+          value={props.query}
+          onInput={(e) => props.onQueryChange((e.target as HTMLInputElement).value)}
+        />
+      </div>
 
       <div class="chip-row">
         <span class="chip chip-selected">ALL &middot; {props.tables.length}</span>

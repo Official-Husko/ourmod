@@ -2,7 +2,6 @@ import {useEffect, useState} from 'preact/hooks';
 import {AttachInfo, ControlView, FeatureView, TableSummary} from '../types';
 import {TableSource} from '../../wailsjs/go/desktop/App';
 import {CommandLine} from '../components/CommandLine';
-import {OverlayPreview} from '../components/OverlayPreview';
 import {ToggleRow} from '../components/ToggleRow';
 import {YamlBlock} from '../components/YamlBlock';
 import {useTypewriter} from '../hooks/useTypewriter';
@@ -29,6 +28,7 @@ export function GameView(props: {
   onToggle: (name: string, checked: boolean) => void;
 }) {
   const {table, features, attachInfo, onBack} = props;
+  const activeCount = features.filter((f) => f.active).length;
 
   return (
     <div class="game-view">
@@ -39,6 +39,7 @@ export function GameView(props: {
         <span class={`status-inline${attachInfo ? ' attached' : ''}`}>
           {attachInfo ? `▸ ATTACHED · PID ${attachInfo.pid}` : '· NOT ATTACHED'}
         </span>
+        {attachInfo && <span class="status-meta">{activeCount} cheat{activeCount === 1 ? '' : 's'} active</span>}
       </div>
 
       {attachInfo ? (
@@ -101,7 +102,6 @@ function AttachedPhase(props: {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'active' | 'risky'>('all');
   const [tab, setTab] = useState<'cheats' | 'script' | 'history'>('cheats');
-  const [showOverlay, setShowOverlay] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   const toggleCollapsed = (cat: string) => {
@@ -159,6 +159,11 @@ function AttachedPhase(props: {
         <div class="kv-list">
           <div class="kv-row"><span class="dim">pid</span><span>{attachInfo.pid}</span></div>
           <div class="kv-row"><span class="dim">checksum</span><span class="mono-sm">{table.checksum.slice(0, 12)}&hellip;</span></div>
+          <div class="kv-row">
+            <span class="dim">built for</span>
+            <span>{table.compatibleVersions && table.compatibleVersions.length > 0 ? table.compatibleVersions.join(', ') : 'unspecified'}</span>
+          </div>
+          <div class="kv-row"><span class="dim">your build</span><span class="dim">not tracked yet</span></div>
           <div class="kv-row"><span class="dim">cheats</span><span>{features.length} &middot; {riskyCount} risky</span></div>
           <div class="kv-row"><span class="dim">source</span><span>{table.path}</span></div>
         </div>
@@ -171,14 +176,12 @@ function AttachedPhase(props: {
             </div>
           </div>
         )}
-        <p class="hint">Diffs live in git history &middot; open SCRIPT to read the source.</p>
 
         <div class="sidebar-spacer"/>
         <div class="toggle-row-boxed">
           <ToggleRow label="Save mods" hint="Remembers which cheats are switched on now and reapplies them next time you attach."/>
         </div>
-        <button class="btn btn-outline btn-full" onClick={() => setShowOverlay(true)}>PREVIEW OVERLAY</button>
-        <button class="btn btn-outline btn-full" onClick={onDetachAll}>DETACH &middot; RESTORE ALL</button>
+        <button class="btn btn-danger btn-full" onClick={onDetachAll}>DETACH &middot; RESTORE ALL</button>
         <p class="hint">Values revert on detach. Saves already written to disk do not.</p>
       </aside>
 
@@ -194,12 +197,15 @@ function AttachedPhase(props: {
         {tab === 'cheats' && (
           <>
             <div class="filter-row">
-              <input
-                class="search-input"
-                placeholder={`> ${filterPlaceholder}_`}
-                value={query}
-                onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
-              />
+              <div class="search-input-wrap">
+                <span class="search-prompt">&gt;</span>
+                <input
+                  class="search-input"
+                  placeholder={`${filterPlaceholder}_`}
+                  value={query}
+                  onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
+                />
+              </div>
               <span class={`chip${filter === 'all' ? ' chip-selected' : ''}`} onClick={() => setFilter('all')}>ALL &middot; {features.length}</span>
               <span class={`chip${filter === 'active' ? ' chip-selected' : ''}`} onClick={() => setFilter('active')}>ACTIVE &middot; {activeCount}</span>
               <span class={`chip chip-warn${filter === 'risky' ? ' chip-selected' : ''}`} onClick={() => setFilter('risky')}>RISKY &middot; {riskyCount}</span>
@@ -268,10 +274,6 @@ function AttachedPhase(props: {
           </div>
         )}
       </div>
-
-      {showOverlay && (
-        <OverlayPreview gameName={table.name} features={features} onClose={() => setShowOverlay(false)}/>
-      )}
     </div>
   );
 }

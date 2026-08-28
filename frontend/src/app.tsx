@@ -92,6 +92,7 @@ export function App() {
       ListTables().then(setTables);
       if (current && path === current.path) {
         ReloadTable().then((result) => {
+          setCurrent(result.table);
           setFeatures(result.features ?? []);
           if (result.reverted && result.reverted.length > 0) {
             showError(`Reverted (definition changed): ${result.reverted.join(', ')}`);

@@ -8,6 +8,7 @@ export interface TableSummary {
   checksum: string;
   featureCount: number;
   author: string;
+  compatibleVersions: string[] | null;
 }
 
 // Matches the generated wailsjs FeatureView.control.kind, which comes
@@ -43,6 +44,7 @@ export interface AttachInfo {
 }
 
 export interface ReloadResult {
+  table: TableSummary;
   features: FeatureView[];
   reverted: string[] | null;
 }

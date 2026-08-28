@@ -34,12 +34,13 @@ const TablesChangedEvent = "tables:changed"
 // Library/Trainers tab's listing - Checksum and FeatureCount are real
 // (sha256 of the file, actual parsed feature count), not placeholders.
 type TableSummary struct {
-	Path         string `json:"path"`
-	Name         string `json:"name"`
-	Version      string `json:"version"`
-	Checksum     string `json:"checksum"`
-	FeatureCount int    `json:"featureCount"`
-	Author       string `json:"author"`
+	Path               string   `json:"path"`
+	Name               string   `json:"name"`
+	Version            string   `json:"version"`
+	Checksum           string   `json:"checksum"`
+	FeatureCount       int      `json:"featureCount"`
+	Author             string   `json:"author"`
+	CompatibleVersions []string `json:"compatibleVersions"`
 }
 
 // FeatureView is the JSON-friendly projection of a cheats.Feature the
@@ -201,6 +202,7 @@ func summarizeTable(path string) TableSummary {
 		if summary.Author == "" && len(t.Metadata.Authors) > 0 {
 			summary.Author = strings.Join(t.Metadata.Authors, ", ")
 		}
+		summary.CompatibleVersions = t.Metadata.CompatibleVersions
 	}
 
 	if data, err := os.ReadFile(path); err == nil {
@@ -226,10 +228,13 @@ func (a *App) LoadTable(path string) ([]FeatureView, error) {
 	return a.Features(), nil
 }
 
-// ReloadResult is ReloadTable's return: the refreshed feature list, plus
-// the names of any active feature that got reverted because its own
-// definition changed out from under it.
+// ReloadResult is ReloadTable's return: a refreshed TableSummary (checksum,
+// version, etc. all move when the file does - a caller holding onto the
+// TableSummary from before the edit would otherwise show stale values),
+// the refreshed feature list, and the names of any active feature that got
+// reverted because its own definition changed out from under it.
 type ReloadResult struct {
+	Table    TableSummary  `json:"table"`
 	Features []FeatureView `json:"features"`
 	Reverted []string      `json:"reverted"`
 }
@@ -262,7 +267,7 @@ func (a *App) ReloadTable() (ReloadResult, error) {
 		a.persistState()
 	}
 
-	return ReloadResult{Features: a.Features(), Reverted: reverted}, nil
+	return ReloadResult{Table: summarizeTable(a.tablePath), Features: a.Features(), Reverted: reverted}, nil
 }
 
 // revertChangedActiveFeatures disables any currently-active feature whose

@@ -111,7 +111,7 @@ code { font-family: var(--mono); }
   padding: 0 14px;
   border-bottom: 1px solid var(--border);
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 7px;
 }
 
@@ -227,6 +227,7 @@ code { font-family: var(--mono); }
 
 .status-inline { font-size: 9.5px; letter-spacing: 0.1em; color: var(--text-dim); }
 .status-inline.attached { color: var(--accent); }
+.status-meta { font-size: 9.5px; letter-spacing: 0.1em; color: var(--text-faint); margin-left: 12px; }
 
 .hint { font-size: 10.5px; color: var(--text-dim); }
 .hint-banner {
@@ -372,15 +373,41 @@ input:focus { outline: none; border-color: var(--border-strong); }
 .trainers-table-row:hover { background: rgba(126, 240, 176, 0.05); }
 .mono-sm { font-size: 10.5px; }
 
-.search-input {
+/* Two sizes, matching the mockup's TerminalInput variants: "lookup" (the
+   Library's hero search, bigger) and "field" (an inline filter next to
+   chips, compact - the default here). The ">" prompt is a persistent
+   sibling of the real <input>, not baked into its placeholder text, so it
+   stays visible once the user starts typing instead of vanishing. */
+.search-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
   background: rgba(126, 240, 176, 0.03);
-  color: var(--text);
   border: 1px solid var(--border);
+  padding: 0 12px;
+}
+
+.search-input-wrap:focus-within { border-color: var(--border-strong); }
+
+.search-prompt { flex: none; color: var(--accent); font-size: 12px; }
+
+.search-input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  color: var(--text);
   font-family: var(--mono);
   font-size: 12px;
-  padding: 10px 12px;
+  padding: 11px 0;
 }
+
+.search-input:focus { outline: none; }
+
+.search-input-wrap.hero { padding: 0 14px; }
+.search-input-wrap.hero .search-prompt { font-size: 13px; }
+.search-input-wrap.hero .search-input { padding: 18px 0; font-size: 13px; }
 
 .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
 
@@ -900,7 +927,7 @@ footer {
   border-bottom: 1px solid rgba(126, 240, 176, 0.1);
 }
 
-.filter-row .search-input { flex: 1; }
+.filter-row .search-input-wrap { flex: 1; }
 .filter-row .chip { cursor: pointer; }
 
 /* --- overlay preview --- */
